@@ -1,0 +1,220 @@
+// @ts-check
+// The ten commands moved in stage 1: role, config-get, config-check, timeouts, hook-timeouts, verify-timeout, tm-scaled, db-config,
+// hook-config, help. Each one keeps its arguments, stdout, stderr, exit code and files exactly as in agent.sh 0.0.40. An input whose
+// shell behaviour is an implementation-specific error text throws BridgeToShell before any output; the entry then runs the shell code.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { bytes, configGetFrom } from '../config.mjs';
+import { configLines, dec0 } from '../config.mjs';
+import { fail, unsupported } from '../errors.mjs';
+import { isFile } from '../paths.mjs';
+import * as proc from '../proc.mjs';
+import { hookKnob, hookTimeouts, timeoutsInfo, tmScaled, verifyCommandTimeout } from '../timeouts.mjs';
+import { checkConfigLines } from './config-check.mjs';
+import { C1_HANDLERS } from './c1.mjs';
+import { LIBRARY_HANDLERS } from './library.mjs';
+import { TOOLS_HANDLERS } from './tools.mjs';
+import { CHECK_HANDLERS } from './checks.mjs';
+import { VERIFY_HANDLERS } from './verify.mjs';
+import { APPROVE_HANDLERS } from './approve.mjs';
+import { HOOKCMD_HANDLERS } from './hookcmds.mjs';
+import { RUNCMD_HANDLERS } from './runcmds.mjs';
+import { LIFECMD_HANDLERS } from './lifecmds.mjs';
+import { RESULTCMD_HANDLERS } from './resultcmds.mjs';
+import { GATECMD_HANDLERS } from './gatecmds.mjs';
+import { COMPLETION_HANDLERS } from './reportcmds.mjs';
+import { DELIVERCMD_HANDLERS } from './delivercmds.mjs';
+import { KI_HANDLERS } from './kicmds.mjs';
+import { HELPER_HANDLERS } from './helpercmds.mjs';
+import { BATCH_HANDLERS } from '../batch.mjs';
+import { BATCHPLAN_HANDLERS } from '../batchplan.mjs';
+import { WORKTREE_HANDLERS } from '../worktree.mjs';
+import { DECIDE_HANDLERS } from '../decide.mjs';
+import { DIFFDIGEST_HANDLERS } from '../diffdigest.mjs';
+import { ADVANCE_HANDLERS } from '../advance.mjs';
+import { ereTypo, forbiddenTokens, globShaped } from '../grepfile.mjs';
+import { detectPlatform, warnText } from '../platform.mjs';
+import { DB_CLIENTS_DEFAULT, DB_MIGRATE_DEFAULT, DB_PATHS_DEFAULT, USAGE_LINES } from './data.mjs';
+
+/** @typedef {import('../context.mjs').Context} Context */
+
+const DIGITS = /^[0-9]+$/;
+
+/** The text of a byte string as an argument for a child (the bytes must be UTF-8, else the shell code decides). @param {string} s */
+function toArg(s) {
+  const back = Buffer.from(s, 'latin1').toString('utf8');
+  if (bytes(back) !== s) throw unsupported('argument is not UTF-8');
+  return back;
+}
+
+/** @param {Context} ctx */
+function role(ctx) {
+  ctx.out(`role=${ctx.role}\n`);
+  return 0;
+}
+
+/** @param {Context} ctx @param {string[]} args */
+function configGet(ctx, args) {
+  const raw = args[0] ?? '';
+  // `${2:?usage}` prints a shell-specific error for a missing key; awk -v reads backslash escapes in the key
+  if (raw === '' || raw.includes('\\') || !isFile(ctx.configFile)) throw unsupported('config-get shape');
+  const key = bytes(raw);
+  const v = ctx.config().getRaw(key);
+  if (v === null) fail(`config key not found: ${key}`);
+  ctx.out(`${v}\n`);
+  return 0;
+}
+
+/** @param {Context} ctx @param {string[]} args */
+function configCheck(ctx, args) {
+  const config = bytes(ctx.configFile);
+  const file = bytes(args[0] ?? '') || config;
+  const rel = file.startsWith(`${bytes(ctx.root)}/`) ? file.slice(bytes(ctx.root).length + 1) : file;
+  const disk = path.resolve(ctx.cwd, Buffer.from(file, 'latin1').toString('utf8'));
+  if (!isFile(disk)) fail(`config missing: ${file}`);
+  let text;
+  try { text = readFileSync(disk, 'latin1'); } catch { throw unsupported('config unreadable'); }
+  const lines = configLines(text);
+  const checked = checkConfigLines(lines);
+  if (checked.ambiguous) throw unsupported('message order of an awk loop');
+  let messages = checked.messages;
+  if (messages.length === 0) {
+    // The regular expressions are validated by the platform's own grep -E and awk, exactly as the shell does (a spawn each, counted)
+    for (const key of ['validation.entry_words', 'validation.entry_candidates', 'validation.entry_input', 'validation.entry_new', 'validation.entry_output', 'validation.entry_skip', 'validation.code_patterns']) {
+      const v = (configGetFrom(lines, key) ?? '').replace(/\n+$/, '');
+      if (v === '') continue;
+      // The pattern goes in on stdin (`-f -`), never as an argument: the MSYS grep of Windows re-parses its command line and eats the backslashes of an argument (A246).
+      const r = proc.run('grep', ['-Eq', '-f', '-'], { cwd: ctx.cwd, env: ctx.childEnv(), input: `${toArg(v)}\n`, stdio: ['pipe', 'ignore', 'ignore'] });
+      if (r.status >= 2) messages.push(`invalid regular expression for ${key}`);
+    }
+    // Every other key that holds a pattern for grep (A250): git.forbidden_identities (a deny list: an invalid entry would match nothing, so it is rejected here)
+    // and every risk.<name>.content (grep -E for a signal without words, awk with words). risk.log_sensitive.content is matched by awk (risk_words_match, A162).
+    /** @param {string} key @param {string} v @param {boolean} ci */
+    const grepBad = (key, v, ci) => {
+      const r = proc.run('grep', [ci ? '-Eiq' : '-Eq', '-f', '-'], { cwd: ctx.cwd, env: ctx.childEnv(), input: `${toArg(v)}\n`, stdio: ['pipe', 'ignore', 'ignore'] });
+      if (r.status >= 2) messages.push(`invalid regular expression for ${key}`);
+    };
+    for (const tok of forbiddenTokens(configGetFrom(lines, 'git.forbidden_identities')).filter((x) => !globShaped(x) && ereTypo(x))) grepBad('git.forbidden_identities', tok, true);
+    const names = [...new Set(lines.map((l) => /^risk\.([a-z_]+)\.content=/.exec(l)?.[1]).filter((x) => x !== undefined))];
+    for (const n of names) {
+      const key = `risk.${n}.content`;
+      const re = (configGetFrom(lines, key) ?? '').replace(/\n+$/, '');
+      if (re === '') continue;
+      grepBad(key, re, false);   // the same POSIX ERE for a signal with words (matched by Node code since A251, no awk is started) as without
+    }
+  }
+  if (messages.length === 0) {
+    ctx.out(`config valid: ${rel}\n`);
+    if (file === config) ctx.err(warnText(detectPlatform(ctx)));
+    return 0;
+  }
+  ctx.err(`${messages.join('\n')}\n`);
+  fail(`config invalid: ${rel}`);
+}
+
+/** @param {Context} ctx */
+function timeouts(ctx) { ctx.out(`${timeoutsInfo(ctx.config()).join('\n')}\n`); return 0; }
+
+/** @param {Context} ctx */
+function hookTimeoutsCommand(ctx) { ctx.out(`${hookTimeouts(ctx.config()).join('\n')}\n`); return 0; }
+
+/** @param {Context} ctx */
+function verifyTimeout(ctx) { ctx.out(`${verifyCommandTimeout(ctx.config())}\n`); return 0; }
+
+/** @param {Context} ctx @param {string[]} args */
+function tmScaledCommand(ctx, args) {
+  const [n0 = '', lo = '', hi = ''] = args;
+  const n = /^-[0-9]{1,12}$/.test(n0) ? '0' : n0; // a negative number is clamped like zero
+  const num = (/** @type {string} */ s) => DIGITS.test(s) && s.length <= 12;
+  if (!num(n) || (lo !== '' && !num(lo)) || (hi !== '' && !num(hi))) throw unsupported('tm-scaled shape');
+  ctx.out(`${tmScaled(ctx.config(), n, lo === '' ? 1 : Number(dec0(lo)), hi === '' ? 28800 : Number(dec0(hi)))}\n`);
+  return 0;
+}
+
+/** `db_config SUB` @param {Context} ctx @param {string} sub */
+function dbValue(ctx, sub) {
+  const cfg = ctx.config();
+  switch (sub) {
+    case 'paths': return cfg.get('database.paths', DB_PATHS_DEFAULT);
+    case 'clients': return cfg.get('database.clients', DB_CLIENTS_DEFAULT);
+    case 'migrate_commands': return cfg.get('database.migrate_commands', DB_MIGRATE_DEFAULT);
+    default: return fail('usage: agent.sh db-config <paths|clients|migrate_commands|all>');
+  }
+}
+
+/** @param {Context} ctx @param {string} sub */
+function dbAll(ctx, sub) {
+  if (sub !== 'all') return `${dbValue(ctx, sub)}\n`;
+  const t = (/** @type {string} */ s) => dbValue(ctx, s).replace(/\n+$/, '');
+  return `paths=${t('paths')}\nclients=${t('clients')}\nmigrate_commands=${t('migrate_commands')}\n`;
+}
+
+/** @param {Context} ctx @param {string[]} args */
+function dbConfig(ctx, args) {
+  ctx.out(dbAll(ctx, args[0] === undefined || args[0] === '' ? 'all' : bytes(args[0])));
+  return 0;
+}
+
+/** @param {Context} ctx */
+function hookConfig(ctx) {
+  const cfg = ctx.config();
+  const t = (/** @type {string} */ k) => cfg.get(k, '').replace(/\n+$/, '');
+  ctx.out(dbAll(ctx, 'all'));
+  ctx.out(`tasks_dir=${t('tasks.dir')}\ncanonical_branch=${t('canonical_branch')}\nproduct_dir=${t('product.dir')}\n`);
+  ctx.out(`approve_budget_seconds=${hookKnob(cfg, 'approve_budget_seconds', 20, 5, 25)}\nnext_budget_seconds=${hookKnob(cfg, 'next_budget_seconds', 10, 2, 20)}\nlock_wait_seconds=${hookKnob(cfg, 'lock_wait_seconds', 8, 1, 20)}\n`);
+  return 0;
+}
+
+/** The usage text on stderr, exit 0 (`help`). @param {Context} ctx */
+function help(ctx) {
+  ctx.err(`${USAGE_LINES.join('\n')}\n`);
+  return 0;
+}
+
+/** @type {Record<string, (ctx: Context, args: string[]) => number>} */
+export const HANDLERS = {
+  role,
+  'config-get': configGet,
+  'config-check': configCheck,
+  timeouts,
+  'hook-timeouts': hookTimeoutsCommand,
+  'verify-timeout': verifyTimeout,
+  'tm-scaled': tmScaledCommand,
+  'db-config': dbConfig,
+  'hook-config': hookConfig,
+  help,
+  // --- stage 2, package LIB ---
+  ...LIBRARY_HANDLERS,
+  // --- stage 2, package TOOLS ---
+  ...TOOLS_HANDLERS,
+  // --- stage 2, package C1 ---
+  ...C1_HANDLERS,
+  // --- stage 2, package C2 ---
+  ...VERIFY_HANDLERS,
+  ...CHECK_HANDLERS,
+  // --- stage 3, package CMDS ---
+  ...APPROVE_HANDLERS,
+  ...HOOKCMD_HANDLERS,
+  // --- stage 4, package 4A ---
+  ...RUNCMD_HANDLERS,
+  // --- stage 4, package 4B ---
+  ...LIFECMD_HANDLERS,
+  // --- stage 4, package 4C ---
+  ...RESULTCMD_HANDLERS,
+  ...GATECMD_HANDLERS,
+  ...COMPLETION_HANDLERS,
+  // --- stage 6 ---
+  ...DELIVERCMD_HANDLERS,
+  // --- stage 7, package 172-B (A222) ---
+  ...KI_HANDLERS,
+  // stage 7, package C (A225): the worktree commands and night mode
+  ...WORKTREE_HANDLERS,
+  ...BATCH_HANDLERS,
+  ...BATCHPLAN_HANDLERS,
+  // --- stage 7, package 172-D (A226) ---
+  ...DECIDE_HANDLERS,
+  ...DIFFDIGEST_HANDLERS,
+  ...ADVANCE_HANDLERS,
+  // --- stage 7, package 173-A (A229): the last commands that ran as shell code ---
+  ...HELPER_HANDLERS,
+};

@@ -1,0 +1,66 @@
+# Scope
+
+## 1. Format
+
+The canonical front matter, exactly this shape (two-space list items, four-space keys; `agent.sh` reads the same subset):
+
+```
+---
+scope:
+  - path: src/shipping.js
+    new: true
+    criteria: [AC-1, AC-2, AC-3]
+  - path: test/shipping.test.js
+    new: true
+    criteria: [AC-1, AC-2, AC-3]
+  - path: config/shop.json
+    criteria: [AC-3]
+    tdd_exemption: "data file read by src/config.js; AC-3 is proven by test/shipping.test.js"
+---
+```
+
+| Key | Required | Value |
+|---|---|---|
+| `path` | yes | repo-relative file path; no `./`, `..`, glob characters (`* ? [ ] { }`), or directory |
+| `criteria` | yes | flow list of `AC-<n>` ids from TASK.md, at least one |
+| `new` | no | `true` when the plan creates the file; omitted or `false` otherwise |
+| `tdd_exemption` | no | quoted reason why RED/GREEN evidence does not apply to this path |
+| `kind` | no | `code`, `test`, `content` or `doc` (A202). A claim: the script derives the kind of every path (`agent.sh scope-kinds <ID>`) and counts a path whose claim differs, or is not one of the four, as code in the scope bound and the gate re-run. Omit it and the script derives |
+
+No other keys, no other top-level keys, no comments inside entries.
+
+## 2. Deriving scope
+
+1. Per criterion, the behavior that must change and where it lives: the `code` claims of EVIDENCE.md, or `git grep` on the criterion's nouns when the class has no EVIDENCE.
+2. Add the test file that proves the criterion (existing test file next to the code first; a new one only when none covers the module).
+3. Add callers only when their code must change, not because they call changed code; a caller whose output changes but whose code does not is a regression risk for `## Tests`, not scope.
+4. Prefer modifying an existing file to creating one; a new file needs a criterion no existing file can serve without mixing responsibilities.
+5. Exclude: dead or duplicate implementations (EVIDENCE `conflict`), formatting-only changes, unrelated cleanups, generated files (list the generator's input instead), lockfiles unless `## Dependencies` adds a package.
+6. **Impact report (A85), when one exists** (an evidence-map `impact` report, JSON `version: 1`, produced by the Explorer for the symbols the criteria change; the run's scratch folder or the Explorer's result names it). Validate it first (`validate-impact.mjs <report> --repo <repo>` exits 0; otherwise ignore it). Use it to find what step 1 missed: `symbols[].files[]` and `modules[]` with `kind: exact` are candidate scope entries or `## Tests` regression risks (apply rule 3: code that must change is scope, a caller whose output merely changes is a risk); `tests[]` feeds the test mapping; `contracts[]` with `changed: true`, or one that names a changed symbol, is a `contract_change` signal to raise. Treat `heuristic` and `textual` entries and everything under `unknown` (cross-repo consumers, dynamic sites) as questions to settle by reading, never as proof that nothing else is affected: "no references found" means "none found statically". Do not list a `textual` or `excluded_homonyms` entry as scope. The report does not replace EVIDENCE.md; a claim the plan relies on still needs a verified `path:symbol`.
+
+## 3. TDD exemptions
+
+Allowed only where a failing-then-passing test cannot exist for that file: data or config files read by tested code, documentation, generated metadata. The reason names what proves the behavior instead. A verification command can prove an AC only when every scope path mapped to it has an exemption; the verifier records the exact command, exit code and demonstrating output lines. "not needed", "config change", "trivial", "n/a" and similar are rejected: the validator strips stock phrases and requires at least 15 meaningful characters to remain, and at least 20 characters overall. A behavior-changing source file never gets an exemption.
+
+## 4. Validation rules
+
+`validate-plan.mjs <PLAN.md> <TASK.md> [--class C] [--repo DIR]` exits 1 on any of:
+
+- front matter missing, not closed, not canonical, an unknown key, a key twice;
+- empty scope; more than 2 code paths for TRIVIAL (content and document paths are not counted, A200);
+- a glob, absolute, `./` or `..` path; a path under `.agents/runs/` or `.agents/local/`; a duplicate; a directory; a path resolving outside the repository;
+- a path that does not exist and is not `new: true`; a path that exists and is `new: true`;
+- a path with no criterion, or with a criterion TASK.md does not define;
+- a TASK criterion served by no scope path and no `## Tests` line naming an existing or in-scope test file in backticks;
+- a `## Tests` line for an unknown criterion;
+- an invalid `tdd_exemption`;
+- a missing title `# Plan: <TASK-ID>` or one naming another task; no criteria in TASK.md; an invalid class;
+- a required section missing ([SECTIONS.md](SECTIONS.md)), a section twice, an empty or placeholder section (`TBD`, `TODO`, `...`, `<...>`);
+- `## Data` whose first line is not `destructive: yes|no`, or `destructive: yes` with a class other than CRITICAL, or `destructive: yes` whose step table has no non-destructive `expand`/`backfill`/`switch` step before the destructive steps (all in `contract` or `deferred`) and no `single_step: yes` line;
+- `## Dependencies` or `## Contracts` that is neither `none` nor a `- ` list;
+- `## Assumptions` that is neither `none` nor the 7-column table (`id | assumption | source | risk | verification | status | decisions`); an id not `AS-<n>` or repeated; a risk outside `low|medium|high`; a status outside `verified|unverified`; a `verified` row, or a `high` row, without a verification method; an empty text, source or decisions cell;
+- `## Verification commands` without a command in backticks or a code block.
+
+Warnings (A200, printed as `warning: ...` lines, exit code unchanged): the freeze asks these questions first, so the validator tells them while the plan is written. More code paths than the class limit (`pipelines.<CLASS>.max_scope_paths`; a content or document path, by `verification.doc_paths`, is not counted and a path that holds code, by `review.executable_code`, always is: forty content files with the same correction are no reason to split); a document or content path without `tdd_exemption`; a non-empty `## Dependencies` (a new dependency needs the user's own approval); an acceptance criterion that cannot be measured as written; COMPLEX with six or fewer paths and no reason in `## Suggested class`. In a night batch the user has answered the same questions before the approval (`/proofline batch` summary, "Pre-flight questions"), and the answers are applied at freeze.
+
+The validator does not check the class against the paths: `agent.sh freeze` and `refreeze` refuse a TRIVIAL plan whose scope holds executable code, tests included (A115). Classify STANDARD first when the plan changes code or adds tests.

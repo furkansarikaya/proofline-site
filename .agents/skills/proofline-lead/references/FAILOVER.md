@@ -1,0 +1,69 @@
+# Failover, resume, queue and concurrency (D4, D7)
+
+`A` = `.agents/scripts/agent.sh`.
+
+## 1. Lead failover and resume
+
+All state is in `RUN.yaml`, `LEDGER.log` and the run artifacts, written by `agent.sh` after every
+transition. Nothing the lead remembers is state.
+
+`resume` (`/proofline resume`, `proofline resume`, or a new session of either runtime):
+
+1. Boot ([SKILL.md](../SKILL.md#boot-every-session-proofline-resume)); `A status`.
+2. `A freshness <ID>` and `A verify-handoff <ID>`: trust persisted work only after `freshness` and `verify-handoff` pass. A failure is reported verbatim; the run is not
+   continued until it is resolved (an amendment, or `terminate BLOCKED`).
+3. `A next <ID>` and continue in the Flow table. The interrupted step restarts from its beginning, never
+   from the middle:
+   - an interrupted dispatch -> dispatch the same step again with the same assignment;
+   - an interrupted implementer -> its partial edits are on disk: `A next` decides (an unattested change
+     fails the next transition; report it and ask the user before any undo, which is destructive). A `D` killed from outside
+     (exit 124 or "Terminated" under the lead's own tool timeout; `D` itself exits 143 after it stopped its worker, ledgered the interruption and left a RESUME note, A226) is closed by the script:
+     the write window is closed after the worker has stopped (status 128 plus the signal; 137 by the worker's guardian after a SIGKILL), the partial edits are the implementer's and the gates judge them as any other edit,
+     so just dispatch the same step again (it carries the RESUME note). Only when `D` says the window could not be closed, or the next `D` says
+     `window-open refused` (the guardian itself was killed too), the edits are unattested (A224). That recovery needs the user and no approval covers it, not even a batch's:
+     `A tree-inspect <ID>`, then ONE question with both answers, verbatim from the script: keep the tree (`A tree-accept <ID>`, the
+     user's approval; every gate runs again) or discard the listed task files and dispatch again (destructive). Do not re-dispatch,
+     discard or hand-edit before the answer; in a batch park that task (`A batch-park`) and go on with the others;
+   - an interrupted lead write (EVIDENCE.md, PLAN.md, COMPLETION_REPORT.md) -> rewrite it from its inputs.
+4. A pending question or approval request stays pending: re-print it (`A questions`, or the
+   `request-approval` question) and STOP.
+5. A run whose delivery reached the pull request (`A next <ID>` prints the `gh pr checks` line) continues from the CI:
+   green -> `proofline merge <PR>` and `cleanup`; red -> `A deliver-step <ID> ci-fix <PR>`; an open CI-fix attempt
+   continues at the step `A next` names ([DELIVERY.md](DELIVERY.md#6-a-red-ci-is-a-finding-the-ci-fix-round-a169)).
+   Never run `deliver-plan` again for it.
+
+## 2. Specialist failover
+
+`dispatch.sh` owns it, by config `failover`:
+
+| `failover` | On a runtime limit / unavailable / auth error |
+|---|---|
+| `auto` | re-runs the same step from its beginning on the other runtime when it is installed and meets the role's `tier_floor`; ledgered as `failover from=.. to=.. reason=..` |
+| `ask` | stores the question with `A ask` (pending, ledgered) and exits 5 with `RESULT: NEEDS_INPUT`: `A questions`, relay verbatim, STOP ([HANDOFF.md](HANDOFF.md)); on the user's yes re-run `D` with `--runtime <other>` |
+| `off` | BLOCKED |
+
+- On the Agent path (Claude subagent) a runtime limit means the subagent did not return a result. The lead
+  never calls `A decide` for the other runtime: dispatch.sh decides and checks the floor itself (exit 6
+  BLOCKED when unmet). `failover: auto` and codex installed: `A ledger-note <ID> "failover from=claude
+  to=codex reason=<...>"`, then `D <ID> <role> [--focus F] --runtime codex --prompt-file
+  .agents/local/assignments/<ID>/<file>` with the same assignment. `ask`: `A ask <ID>` with the D13 block
+  (re-run on codex? options yes | no), relay `A questions`, STOP; on the user's yes, the `auto` steps.
+  `off`: the step is BLOCKED.
+- Never silent: every failover shows in the completion report's `## Execution`.
+- Capability floor: a role whose floor no available runtime meets (always the case for a downgraded
+  `security_reviewer`) is BLOCKED; the gate is never run on a weaker model.
+
+## 3. Queue and concurrency
+
+- One active run per worktree (the active run file); one implementer per run; a task queue runs
+  sequentially, each task in its own run; the next task starts only after the previous run is cleaned up.
+- `queue`: list `tasks.dir` (`todo/` before `backlog/`, then file order); show the list and run the first
+  on the user's go; after each run's final report, ask before starting the next one when the previous run
+  ended FAILED or BLOCKED.
+- A run's own worktree (A169) is made by `agent.sh worktree-add <ID>` in the main working tree: `.agents/local/worktrees/<ID>`
+  (git-ignored), detached at the canonical tip, with its own copies of the dependency folders and ignored `.env*` files (never links, A185); the shared batch, approvals, metrics, friction and prompts state stays in the main working tree and is reached by path;
+  `worktree-path <ID>` prints it, `worktree-remove <ID> [--force]` removes it (refused while a run is inside). Night mode makes one per task.
+  The second run starts in a session whose project folder is that worktree.
+- Parallel runs only in separate git worktrees, each with its own `.agents/local/ACTIVE_RUN`, at most
+  `max_parallel_runs` (default 1), and only when their frozen `scope:` paths do not overlap. The lead never
+  starts a run whose scope overlaps a running one.

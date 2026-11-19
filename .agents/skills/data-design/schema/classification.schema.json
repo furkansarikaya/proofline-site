@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/furkansarikaya/proofline/skills/data-design/schema/classification.schema.json",
+  "title": "data-design migration classification (output of scripts/classify-migration.mjs)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "destructive", "files", "actions"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "destructive": {
+      "description": "yes when any action is destructive or unknown, or a file could not be analyzed",
+      "enum": ["yes", "no"]
+    },
+    "down_destructive": { "description": "yes when a destructive or unknown action sits on the down (rollback) path; the up path alone decides `destructive`", "enum": ["yes", "no"] },
+    "unanalyzed": {
+      "description": "non-SQL files the token scan could not understand (run-time built SQL, no recognised operation): never silently skipped, the check is UNSUPPORTED for them",
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": ["file", "reason"], "properties": { "file": { "type": "string", "minLength": 1 }, "reason": { "type": "string", "minLength": 1 } } }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "method"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "method": { "enum": ["sql", "token-scan"] }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "statement", "kind", "object", "class", "reason"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "statement": { "type": "string", "maxLength": 300 },
+          "kind": {
+            "enum": ["create_table", "drop_table", "drop_schema", "truncate", "rename_table",
+              "add_column", "drop_column", "rename_column", "alter_column_type", "set_not_null", "drop_not_null",
+              "set_default", "drop_default", "add_constraint", "drop_constraint", "drop_partition",
+              "create_index", "drop_index", "create_other", "drop_other",
+              "insert", "update", "delete", "replace", "merge", "alter_other", "other", "unknown"]
+          },
+          "object": {
+            "description": "lower-case table, or table.column; \"?\" when a token scan could not name it; empty when not applicable",
+            "type": "string"
+          },
+          "class": { "enum": ["destructive", "breaking", "safe", "unknown"] },
+          "path": { "description": "present only on actions of the down (rollback) path", "const": "down" },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

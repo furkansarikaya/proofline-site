@@ -1,0 +1,281 @@
+// @ts-check
+// The inputs of the REVIEW_TESTS reviewer for the speed and determinism of the tests (issue 265 package C, A276; AC-7): `agent.sh build-record <ID> scan` prints, read-only,
+//  - the scan candidates (real waits and direct clock reads) of the files the task added or changed. A changed file that an ecosystem claims is scanned for waits when its path
+//    or its text says it holds tests (the data: test folders and names, test markers), whatever its name; every other claimed file is scanned for clock reads;
+//  - the files nobody could scan (`NOT SCANNED`: a file that is unreadable or too large is not a clean file);
+//  - the plan's `## Test exceptions` (the only justification the gate accepts for a wait, a test over budget or a test that was not measured);
+//  - the measurement facts of package B: the durations and BUDGET findings of the GREEN evidence, the plan's tests that have no recorded duration, the `test-measure` ledger
+//    row (`double_run=0` means nothing was run twice) and, for each GREEN command, whether it is the one the control plane double-ran (plan-listed or the pinned project test
+//    command) or neither, so the reviewer can confirm which command really executes which tests.
+// It decides nothing: candidates and facts are inputs, the reviewer traces them and the findings validator computes the gate. `missingFindings` is what `submit` uses to
+// require a finding (or an explicit, valid clearing) for every one of them in a run that carries the measurement stamp.
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { clean } from './codetrust.mjs';
+import { ecosystemRowsAll } from './ecodata.mjs';
+import { patchManifest, testCodePath } from './gates.mjs';
+import { sha256 } from './hash.mjs';
+import { TASK_EXC_MAX_LINE, TASK_EXC_MAX_LINES } from './exclimits.mjs';
+import { fileText, ledgerLines, ledgerRows, parseLedgerLine, textLines } from './records.mjs';
+import { planVerificationCommands } from './resultutil.mjs';
+import { runDir } from './runs.mjs';
+import { asciiLower } from './shellglob.mjs';
+import { greenRecords, measureRequired, measureRun, planKinds, recordedTestPin, supersededGreens, supersederFilter, testCmdPin } from './testmeasure.mjs';
+import { claimedBy, isTestFile, reportJson, reportText, scanFiles, scanRules, testPathGlobs } from './waitscan.mjs';
+import { latin1Buf } from './wirebytes.mjs';
+
+/** @typedef {import('./context.mjs').Context} Context */
+
+const MAX_EXC_LINE = 4096;
+
+/**
+ * One `## Test exceptions` line: `- wait|budget|measure: <target> -- <reason>` (the separator is `--` or an em dash between blanks), a reason of at least 20 characters. Linear: a line
+ * longer than 4096 characters is no exception, and the separator is found by a search, not by backtracking over the blanks.
+ * @param {string} line @returns {{ kind: string, target: string, reason: string } | null}
+ */
+export function parseException(line) {
+  if (line.length > MAX_EXC_LINE) return null;
+  const head = /^[ \t]*[-*][ \t]*(wait|budget|measure):/.exec(line);
+  if (!head) return null;
+  const rest = line.slice(head[0].length);
+  const sep = rest.search(/[ \t](?:--|—)[ \t]/);
+  if (sep < 0) return null;
+  const target = rest.slice(0, sep).trim();
+  const reason = rest.slice(sep).replace(/^[ \t](?:--|—)[ \t]/, '').trim();
+  return target === '' || reason.length < 20 ? null : { kind: head[1], target, reason };
+}
+
+/** The lines of a `## <name>` section of a PLAN.md, without a regular expression over the whole text. @param {string} plan @param {string} name */
+export function sectionOf(plan, name) {
+  /** @type {string[]} */ const out = []; let inside = false;
+  for (const l of textLines(plan)) { if (l.startsWith('## ')) { inside = l.slice(3).trim() === name; continue; } if (inside) out.push(l); }
+  return out;
+}
+
+/** @param {string} plan @returns {Array<{ kind: string, target: string, reason: string }>} */
+export function planExceptions(plan) {
+  return exceptionLines(plan).map(parseException).filter((x) => x !== null).map((x) => /** @type {{ kind: string, target: string, reason: string }} */ (x));
+}
+
+/**
+ * The lines of the plan's `## Test exceptions`, byte for byte (A284): the ONE line set the parser, the hash, the kept baseline copy and the approval request all use. The only
+ * normalisation is one trailing CR per line (a CRLF file) and the dropping of lines that are then empty; nothing is trimmed, so a line that differs in any byte (a leading U+00A0,
+ * form feed, vertical tab, CR) is a different line with a different hash, never an unchanged one. @param {string} plan
+ */
+export function exceptionLines(plan) { return sectionOf(plan, 'Test exceptions').map((x) => (x.endsWith('\r') ? x.slice(0, -1) : x)).filter((x) => x !== ''); }
+
+/**
+ * Every line of a TASK FILE's `## Test exceptions` that the batch cannot list, with its 1-based line number in the file and the reason (B6): the SAME line set (`exceptionLines`: one
+ * trailing CR dropped, blank lines skipped) and the SAME grammar (`parseException`) the batch lists from, so a line that is not in the listing is never silently lost. Reasons, in this
+ * order per line: a control character (C0 other than tab, DEL, C1; text that is not UTF-8 is checked for C0 and DEL only), a line over the byte limit, a grammar mismatch, a duplicate of an
+ * earlier line; a line after the 50th is over the line limit. Format and space-like characters (zero-width, no-break space) are NOT refused: the summary shows them escaped and hashes
+ * the exact bytes (A285). @param {string} taskText a byte (latin1) string @returns {Array<{ line: number, text: string, reason: string }>}
+ */
+export function exceptionLineIssues(taskText) {
+  /** @type {Array<{ line: number, text: string, reason: string }>} */ const out = [];
+  /** @type {Map<string, number>} */ const seen = new Map();
+  let inside = false; let n = 0; let count = 0;
+  for (const raw of textLines(taskText)) {
+    n++;
+    if (raw.startsWith('## ')) { inside = raw.slice(3).trim() === 'Test exceptions'; continue; }
+    if (!inside) continue;
+    const l = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    if (l === '') continue;
+    count++;
+    /** @type {string} */ let text = l; let utf8 = true;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.from(l, 'latin1')); } catch { utf8 = false; }
+    const add = (/** @type {string} */ reason) => { out.push({ line: n, text: l, reason }); };
+    if ((utf8 ? /[\p{Cc}]/u : /[\x00-\x1f\x7f]/).test(text.replace(/\t/g, ' '))) add('it contains an invisible or control character');
+    else if (l.length > TASK_EXC_MAX_LINE) add(`it is ${l.length} bytes, over the ${TASK_EXC_MAX_LINE}-byte limit of one line`);
+    else if (parseException(l) === null) add('it does not match the grammar "- wait|budget|measure: <target> -- <reason of at least 20 characters>" (separator `--`)');
+    else if (seen.has(l)) add(`it duplicates line ${seen.get(l)}`);
+    else if (count > TASK_EXC_MAX_LINES) add(`it is line ${count} of the section, over the ${TASK_EXC_MAX_LINES}-line limit of one task`);
+    if (!seen.has(l)) seen.set(l, n);
+  }
+  return out;
+}
+
+/** The hash of a list of section lines (empty string for none); the one definition for the plan and for the kept baseline copy. @param {string[]} lines */
+function linesHash(lines) { return lines.length === 0 ? '' : sha256(`${lines.join('\n')}\n`); }
+
+/** The hash of the lines of the plan's `## Test exceptions` (blank lines left out); the empty string when there are none. A refreeze that changes it needs the user. @param {string} plan */
+export function exceptionsHash(plan) {
+  return linesHash(exceptionLines(plan));
+}
+
+/**
+ * The section hash the freeze recorded (A284): the LAST ledger line that parses as a whole row (the shared grammar from the start of the line) whose event field is `test-exceptions` and whose detail is
+ * exactly `sha=<hex>[ approval=<file>]`. Text of another row that merely contains those words is never a row; a row of that event with another detail reads as `invalid-row`, which no section matches.
+ * @param {Context} ctx @param {string} dir
+ */
+export function exceptionsBaseline(ctx, dir) {
+  const r = exceptionsRow(ctx, dir);
+  return r === null ? '' : r.sha;
+}
+
+/**
+ * The last `test-exceptions` row as the structural reader sees it (A284, A285): `sha` is the section hash (`invalid-row` for a row of that event with another detail) and `approval`
+ * the name of the user's `scope` approval the freeze consumed for it ('' when the freeze had none). Null when there is no such row.
+ * @param {Context} ctx @param {string} dir @returns {{ sha: string, approval: string } | null}
+ */
+export function exceptionsRow(ctx, dir) {
+  /** @type {{ sha: string, approval: string } | null} */ let last = null;
+  for (const l of ledgerLines(ctx, dir)) {
+    const row = parseLedgerLine(l);
+    if (row === null || row.event !== 'test-exceptions') continue;
+    const m = /^sha=([0-9a-f]*)(?: approval=(\S+))?$/.exec(row.detail);
+    last = m === null ? { sha: 'invalid-row', approval: '' } : { sha: m[1], approval: m[2] ?? '' };
+  }
+  return last;
+}
+
+/** The hash of one exception line, exact bytes (A285): what the batch summary lists and what a plan line is compared with. @param {string} line */
+export function exceptionLineHash(line) { return sha256(line); }
+
+/** The file that keeps the baseline lines for display only (the decision is the ledger hash). @param {string} dir */
+const BASE_FILE = (dir) => `${dir}/test-exceptions.base`;
+
+/** Keeps the section lines the freeze recorded, so that an approval request can show what changes. @param {string} dir @param {string} plan */
+export function writeExceptionsBase(dir, plan) {
+  writeFileSync(`${BASE_FILE(dir)}.tmp`, latin1Buf(exceptionLines(plan).map((x) => `${x}\n`).join('')));
+  renameSync(`${BASE_FILE(dir)}.tmp`, BASE_FILE(dir));
+}
+
+/** The baseline lines for display, or null when the kept copy is missing or does not hash to the ledger's baseline. @param {Context} ctx @param {string} dir @returns {string[] | null} */
+export function exceptionsBaseLines(ctx, dir) {
+  const want = exceptionsBaseline(ctx, dir);
+  let text;
+  try { text = readFileSync(BASE_FILE(dir), 'latin1'); } catch { return want === '' ? [] : null; }
+  const lines = text.split('\n').filter((x) => x !== '');
+  return linesHash(lines) === want ? lines : null;
+}
+
+/** The sha256 of the project's `.agents/ecosystems.json`, or `none`; the run start records it and the scan compares (A276). @param {Context} ctx */
+export function ecoPin(ctx) { try { return sha256(readFileSync(`${ctx.root}/.agents/ecosystems.json`)); } catch { return 'none'; } }
+
+/**
+ * The tests the frozen plan names (`## Tests`, quoted names) that no GREEN record gives a duration (A325: the one definition `handoff IMPLEMENTED`, the evidence-only repair and the REVIEW_TESTS
+ * input all use). A recorded name matches when it equals the plan name or one contains the other. Sorted, lower case.
+ * @param {Context} ctx @param {string} id @returns {string[]}
+ */
+export function planTestsWithoutDurationOf(ctx, id) {
+  const plan = fileText(ctx, `${runDir(ctx, id)}/PLAN.md`) ?? '';
+  const pk = planKinds(plan);
+  const recorded = greenRecords(ctx, id).flatMap((g) => g.durations.map((d) => asciiLower(d.name)));
+  return [...new Set(pk.names.map((n) => n.name).filter((n) => !recorded.some((r) => r === n || r.includes(n) || n.includes(r))))].sort();
+}
+
+/**
+ * Everything the reviewer reads, and the list of what a findings.json has to answer.
+ * @param {Context} ctx @param {string} id
+ */
+export function collect(ctx, id) {
+  const dir = runDir(ctx, id);
+  const rows = ecosystemRowsAll(ctx);
+  const rules = scanRules(rows);
+  const testGlobs = testPathGlobs(rows);
+  const files = patchManifest(ctx, dir).map((l) => l.slice(0, l.indexOf('|'))).filter((p) => p !== '' && existsSync(`${ctx.root}/${p}`)).sort();
+  // fail safe: every changed file an ecosystem claims is scanned; a test (by name, folder or content) for waits and clock reads, any other for clock reads
+  const claimed = files.filter((f) => claimedBy(f, rules).length > 0);
+  const scan = scanFiles(ctx.root, claimed, rules, (f, text) => (isTestFile(f, text, rules, testGlobs) || testCodePath(ctx, f) ? ['wait', 'clock_read'] : ['clock_read']));
+  const waitFiles = new Set(scan.candidates.filter((c) => c.kind === 'wait').map((c) => c.file));
+  const plan = fileText(ctx, `${dir}/PLAN.md`) ?? '';
+  const exceptions = planExceptions(plan);
+  const m = measureRun(ctx, id);
+  const greens = greenRecords(ctx, id);
+  const planTestsWithoutDuration = planTestsWithoutDurationOf(ctx, id);
+  const row = ledgerRows(ctx, dir, 'test-measure').pop();
+  const detail = row === undefined ? '' : row.detail;
+  const num = (/** @type {string} */ k) => { const v = new RegExp(`\\b${k}=(\\d+)`).exec(detail)?.[1]; return v === undefined ? null : Number(v); };
+  const pinned = new Set((recordedTestPin(ctx, id) ?? '').split(',').filter((h) => h !== ''));
+  const listed = new Set(planVerificationCommands(ctx, id));
+  const cmds = [...new Set(greens.map((g) => g.command).filter((c) => c !== ''))].sort();
+  // A336: a command that is neither plan-listed nor the pinned project test command is SUPERSEDED, and not demanded as a finding, when the one rule `supersededGreens` (the one the IMPLEMENTED handoff
+  // uses) says later GREEN records with an allowed command give a duration to every test it claimed. The record count and the clean double run come from the LAST test-measure row (no row, double_run=0,
+  // a stability finding or a blocker, or a row from before the count existed: nothing supersedes), and a record made after that row, a repair record or a record with a foreign header cannot supersede.
+  const allowedHere = (/** @type {string} */ c) => listed.has(c) || pinned.has(testCmdPin([c]));
+  const rowGreens = num('greens');
+  const rowClean = row !== undefined && (num('double_run') ?? 0) >= 1 && num('stability_findings') === 0 && num('blockers') === 0 && rowGreens !== null;
+  const base = supersederFilter(ctx, id);
+  const sup = rowClean ? supersededGreens(greens, allowedHere, (g) => base(g) && greens.indexOf(/** @type {any} */ (g)) < (rowGreens ?? 0)) : new Map();
+  const commands = cmds.map((c) => ({ command: c, source: listed.has(c) ? 'plan-listed' : pinned.has(testCmdPin([c])) ? 'project test command' : sup.has(c) ? 'superseded' : 'neither', superseded_by: sup.get(c) ?? [] }));
+  const double = num('double_run');
+  const measurement = {
+    test_measure_row: row === undefined ? 'none' : detail,
+    double_run_commands: double,
+    not_measured: double === null || double === 0,
+    green_commands: commands,
+    plan_tests_without_duration: planTestsWithoutDuration,
+    durations: m.tests.map((t) => ({ name: t.name, kind: t.kind, ms: Number(t.ms.toFixed(3)) })).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+    budget_findings: m.budgetFindings,
+    unscanned: scan.skipped,
+    definition_changed: false,
+  };
+
+  /** @typedef {{ text: string, kind: string, match: (f: any) => boolean }} Obligation */
+  // every obligation is answered by a finding whose own fields are EXACTLY the obligation's (the candidate's file, line and pattern; the BUDGET test's name; the `subject` a
+  // not_measured finding names): a finding for another file or another test answers nothing, and one finding can answer one obligation only because the keys differ
+  /** @type {Obligation[]} */ const need = [];
+  const nm = (/** @type {string} */ reason, /** @type {string} */ subject) => (/** @type {any} */ f) => f.kind === 'not_measured' && f.observed?.reason === reason && f.observed?.subject === subject;
+  for (const c of scan.candidates) {
+    const kind = c.kind === 'wait' ? 'real_wait' : 'clock_not_injected';
+    need.push({ text: `the ${c.kind} candidate ${c.file}:${c.line} ${c.pattern}`, kind, match: (f) => f.kind === kind && f.observed?.candidate?.file === c.file && f.observed?.candidate?.line === c.line && f.observed?.candidate?.pattern === c.pattern });
+  }
+  for (const b of m.budgetFindings) {
+    const t = /^BUDGET test "([^"]*)"/.exec(b); const su = /^BUDGET suite (\S+)/.exec(b);
+    const name = t ? asciiLower(t[1]) : su ? `suite ${su[1]}` : '';
+    need.push({ text: b, kind: 'over_budget', match: (f) => f.kind === 'over_budget' && asciiLower(String(f.test?.name ?? '').trim()) === name });
+  }
+  for (const f of scan.skipped) need.push({ text: `the file ${f} that nobody could scan (subject: ${f})`, kind: 'not_measured', match: nm('file_not_scanned', f) });
+  if (row === undefined) need.push({ text: 'the missing test-measure ledger row (subject: no_test_measure_row)', kind: 'not_measured', match: nm('no_test_measure_row', 'no_test_measure_row') });
+  else if (double === 0) need.push({ text: 'double_run=0, no GREEN command was run twice (subject: not_double_run)', kind: 'not_measured', match: nm('not_double_run', 'not_double_run') });
+  if (row !== undefined && ((num('stability_findings') ?? 0) > 0 || (num('blockers') ?? 0) > 0)) need.push({ text: `a stability or duration finding in the test-measure row (${detail}) (subject: measurement_finding)`, kind: 'not_measured', match: nm('measurement_finding', 'measurement_finding') });
+  for (const n of planTestsWithoutDuration) need.push({ text: `the plan test "${n}" that has no recorded duration (subject: ${n})`, kind: 'not_measured', match: nm('no_recorded_duration', n) });
+  for (const c of commands) if (c.source === 'neither') need.push({ text: `the GREEN command \`${c.command}\` that the control plane did not run twice (subject: the command)`, kind: 'not_measured', match: nm('command_not_double_run', c.command) });
+  // the definition the scan read must be the one the run started with (the start recorded its hash): a changed copy could have removed the very names that would have found a wait
+  const pin = ledgerRows(ctx, dir, 'eco-pin')[0];
+  const pinned0 = pin === undefined ? null : (/^sha=([0-9a-f]*|none)$/.exec(pin.detail)?.[1] ?? null);
+  const eco = ecoPin(ctx);
+  const ecoChanged = pinned0 !== null && pinned0 !== eco;
+  if (ecoChanged) need.push({ text: 'ecosystems.json changed since the run started (subject: ecosystems.json)', kind: 'not_measured', match: nm('definition_changed', 'ecosystems.json') });
+  measurement.definition_changed = ecoChanged;
+  return { files, scan, waitFiles, exceptions, measurement, commands, testFiles: files.filter((f) => scan.scanned.includes(f) && (testCodePath(ctx, f) || scan.candidates.some((c) => c.file === f && c.kind === 'wait'))), need };
+}
+
+/**
+ * The review inputs of a run, as the text or JSON `build-record <ID> scan` prints. Exit status 1 when it lists a candidate or a file it could not scan.
+ * @param {Context} ctx @param {string} id @param {boolean} json @returns {{ status: number, out: string }}
+ */
+export function reviewInputs(ctx, id, json) {
+  const c = collect(ctx, id);
+  const m = c.measurement;
+  const report = { scanned: c.scan.scanned, skipped: c.scan.skipped, candidates: c.scan.candidates, allowed: [], unused: [] };
+  const status = c.scan.candidates.length > 0 || c.scan.skipped.length > 0 || m.definition_changed ? 1 : 0;
+  if (json) {
+    const base = JSON.parse(reportJson(report));
+    const cl = (/** @type {string} */ x) => clean(x);
+    return { status, out: `${JSON.stringify({ ...base, task_test_files: c.testFiles.map(cl), plan_exceptions: c.exceptions.map((e) => ({ kind: e.kind, target: cl(e.target), reason: cl(e.reason) })), measurement: { ...m, green_commands: m.green_commands.map((g) => ({ command: cl(g.command), source: g.source, ...(g.source === 'superseded' ? { superseded_by: g.superseded_by } : {}) })), plan_tests_without_duration: m.plan_tests_without_duration.map(cl), durations: m.durations.map((d) => ({ ...d, name: cl(d.name) })), budget_findings: m.budget_findings.map(cl), unscanned: m.unscanned.map(cl), test_measure_row: cl(m.test_measure_row) } }, null, 2)}\n` };
+  }
+  let t = reportText(report);
+  t += `task-test-files: ${c.testFiles.length === 0 ? 'none' : c.testFiles.map(clean).join(' ')}\n`;
+  for (const e of c.exceptions) t += `plan-exception: ${e.kind} ${clean(e.target)} -- ${clean(e.reason)}\n`;
+  t += 'measurement:\n';
+  t += `  test-measure-row: ${m.test_measure_row === 'none' ? 'none (the control plane has not measured this run)' : clean(m.test_measure_row)}\n`;
+  if (m.not_measured) t += '  NOT MEASURED: no GREEN command was run twice (double_run=0 or no row); the durations below are the recorder\'s word, so every duration and every budget below is unconfirmed\n';
+  if (m.definition_changed) t += '  NOT MEASURED: ecosystems.json changed since the run started; the names the scan used may not be the ones the run began with\n';
+  for (const g of m.green_commands) t += `  green-command: \`${clean(g.command)}\` source=${g.source === 'superseded' ? `superseded by ${g.superseded_by.join(', ')} (every test it claimed has a duration in a later record with an allowed command; nothing to report)` : g.source}${g.source === 'neither' ? ' (the control plane did not run it twice)' : ''}; confirm that it executes the task's test files${c.testFiles.length > 0 ? ` (${c.testFiles.map(clean).join(' ')})` : ''}\n`;
+  for (const n of m.plan_tests_without_duration) t += `  NOT MEASURED: the plan names the test "${clean(n)}" and no recorded duration matches it\n`;
+  for (const d of m.durations) t += `  duration: ${clean(d.name)} (${d.kind}) ${d.ms} ms\n`;
+  for (const f of m.budget_findings) t += `  finding: ${clean(f)}\n`;
+  return { status, out: t };
+}
+
+/**
+ * What a tests findings.json leaves unanswered: in a run that carries the measurement stamp, every candidate, BUDGET finding and NOT MEASURED fact needs a finding of its own kind
+ * about it (confirmed, or cleared by the rules the validator checks). A missing one is a validation error, so a reviewer cannot pass a fact over by not mentioning it.
+ * @param {Context} ctx @param {string} id @param {any} doc @returns {string[]}
+ */
+export function missingFindings(ctx, id, doc) {
+  if (!measureRequired(ctx, id)) return [];
+  const findings = Array.isArray(doc?.findings) ? doc.findings : [];
+  return collect(ctx, id).need.filter((o) => !findings.some(o.match)).map((o) => `findings.json has no ${o.kind} finding for ${clean(o.text)} (agent.sh build-record ${id} scan lists it; report it, or clear it with the rules of test-trust FAST.md)`);
+}

@@ -1,0 +1,203 @@
+// @ts-check
+// proofline-core: the Node form of the control plane (ADR 0001). Entry: `node proofline-core.mjs <command> [args]`, and
+// `run(argv, io)` for in-process callers. It does what agent.sh does, in the same order: resolve the root, validate the role, apply the
+// worktree rule, check the role gate, take the locks of a locking command, run the handler, release the locks. A command it does not
+// own yet is run by the shell code through proc.mjs (the bridge; counted).
+import './core/node-check.mjs';
+import { accessSync, constants, mkdirSync, realpathSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { runCli } from './core/commands/cli.mjs';
+import { HANDLERS } from './core/commands/moved.mjs';
+import { PRELOCK } from './core/commands/delivercmds.mjs';
+import { USAGE_LINES } from './core/commands/data.mjs';
+import { COMMAND_NAMES, READ_ONLY_COMMANDS } from './core/commands/names.mjs';
+import { fdWriter } from './core/cliio.mjs';
+import { bytes } from './core/config.mjs';
+import { Context, validRole } from './core/context.mjs';
+import { ProoflineError } from './core/errors.mjs';
+import { startDispatch } from './core/dispatcher.mjs';
+import { LockSet, takeCommandLocks, takesLocks } from './core/lock.mjs';
+import { isDir, isFile } from './core/paths.mjs';
+import * as proc from './core/proc.mjs';
+
+/** @typedef {import('./core/context.mjs').Io} Io */
+
+const READ_ONLY = new Set(READ_ONLY_COMMANDS);
+
+/**
+ * @typedef {object} CommandEntry
+ * @property {string} name
+ * @property {boolean} readOnly in agent.sh's read_only_commands (any role may run it)
+ * @property {boolean} moved a Node handler owns it; the others are run by the shell code through the bridge
+ */
+
+/** @type {CommandEntry[]} */
+const COMMANDS = COMMAND_NAMES.map((name) => ({ name, readOnly: READ_ONLY.has(name), moved: Object.hasOwn(HANDLERS, name) }));
+const ROLE_NAMES = ['lead', 'task_author', 'explorer', 'architect', 'data_architect', 'designer', 'qa', 'implementer', 'reviewer', 'security_reviewer', 'verifier'];
+
+/**
+ * The 132 commands of agent.sh, in the order of its dispatch: name, readOnly (any role), the roles that may run it, moved (a Node handler
+ * owns it; the others go through the bridge).
+ * @returns {Array<CommandEntry & { roles: string[] }>}
+ */
+export function commandTable() {
+  return COMMANDS.map((e) => ({ ...e, roles: ROLE_NAMES.filter((r) => commandAllowed(r, e.name)) }));
+}
+
+/** The commands every role may run besides the read-only ones, per role (agent.sh lines 8929-8933). @param {string} role @returns {string[] | null} null: all */
+function extraCommands(role) {
+  switch (role) {
+    case 'lead': return null;
+    case 'reviewer': case 'security_reviewer': case 'qa': case 'verifier': return ['record', 'gate', 'submit', 'diff-digest'];
+    case 'implementer': return ['record', 'submit', 'worker-evidence', 'handoff'];
+    default: return ['record', 'submit'];
+  }
+}
+
+/**
+ * `cmd_allowed` under the role case of agent.sh: may this (canonical, valid) role run this command?
+ * @param {string} role @param {string} command
+ */
+export function commandAllowed(role, command) {
+  const extra = extraCommands(role);
+  return extra === null || READ_ONLY.has(command) || extra.includes(command);
+}
+
+/** @param {string} id */
+const validTaskId = (id) => /^[A-Za-z0-9_-]+$/.test(id);
+
+/**
+ * One command invocation.
+ * @param {string[]} argv the arguments after agent.sh
+ * @param {Io} io
+ * @returns {number} the exit status
+ */
+export function run(argv, io) {
+  const ctx = new Context(io, io.scriptPath ?? fileURLToPath(import.meta.url));
+  const locks = new LockSet(ctx);
+  ctx.locks = locks;
+  ctx.runner = run;
+  try {
+    return dispatch(ctx, locks, argv);
+  } catch (e) {
+    if (e instanceof ProoflineError) { ctx.printError(e); ctx.flush(); return e.exitCode; }
+    // An unexpected exception is a bug of the core: it fails closed (message and stack on stderr, a non-zero status), it is never answered by
+    // the shell code (there is none).
+    ctx.discard();
+    const text = e instanceof Error ? (e.stack ?? e.message) : String(e);
+    io.stderr.write(Buffer.from(`proofline: internal error in ${argv[0] ?? ''}: ${text}\n`));
+    return 70;
+  } finally {
+    locks.releaseAll();
+  }
+}
+
+/** @param {Context} ctx @param {LockSet} locks @param {string[]} argv */
+function dispatch(ctx, locks, argv) {
+  const command = argv[0] ?? '';
+  const args = argv.slice(1);
+  // the CLI-only subcommands (closed set, read-only; see core/commands/cli.mjs) are not agent.sh commands and take neither role gate nor bridge
+  if (command === 'cli') return runCli(ctx, args);
+  // `dispatch` is a long-running process (a watchdog with timers and signals), not a command of agent.sh: main() runs it, never run()
+  if (command === 'dispatch') throw new ProoflineError('proofline-core: dispatch is a process of its own: node proofline-core.mjs dispatch <TASK-ID> <role> [options]', 2, 'NOT_MOVED');
+  const handler = Object.hasOwn(HANDLERS, command) ? HANDLERS[command] : undefined;
+  // agent.sh parses the config at its start: a config that exists but cannot be read is the shell's (awk's) error
+  if (handler && isFile(ctx.configFile)) { try { accessSync(ctx.configFile, constants.R_OK); } catch { throw new ProoflineError('proofline: the configuration file is not readable', 1); } }
+  if (!validRole(ctx.role)) throw new ProoflineError(`invalid execution role: ${bytes(ctx.rawRole)}`, 1);
+  // A169: a run that lives in its own worktree is served by that worktree's agent.sh (only for a command this core owns). A344: a run exists in the main tree only
+  // with a RUN.yaml FILE; a stray folder a role made from the wrong directory (mkdir -p .agents/runs/T-2/scratch) does not switch the routing off
+  const id = args[0];
+  // (the worktree and batch commands name a task but run in the folder they are given, as in agent.sh)
+  if (handler && command !== 'start' && !/^(worktree-add|worktree-path|worktree-remove|batch-.*)$/.test(command) && id !== undefined && validTaskId(id) && !isFile(`${ctx.root}/.agents/runs/${id}/RUN.yaml`)
+    && isDir(`${ctx.root}/.agents/local/worktrees/${id}/.agents/runs/${id}`) && isFile(`${ctx.root}/.agents/local/worktrees/${id}/.agents/scripts/agent.sh`)) {
+    // served in process by THIS core with the worktree as the root (its agent.sh is only the path that names the root; nothing of it is run: its
+    // proofline-core.mjs and scripts are tracked content a task could have rewritten)
+    const wt = `${ctx.root}/.agents/local/worktrees/${id}`;
+    return run(argv, { ...ctx.io, cwd: wt, scriptPath: `${wt}/.agents/scripts/agent.sh`, argv0: undefined });
+  }
+  // the role gate comes first, for every command
+  if (!commandAllowed(ctx.role, command)) throw new ProoflineError(`command denied for ${ctx.role}: ${command}`, 1);
+  // This entry is not a second front door to agent.sh: it runs the commands it owns and nothing else. An unmoved command is run with agent.sh.
+  if (!handler) {
+    // no command or a name that is no command at all (every command has a handler since issue #173 package A): the usage text on stderr, status 2; the shell
+    // took its lock folder first (a locking command), so the folder exists
+    try { mkdirSync(`${ctx.agents}/local/locks`, { recursive: true }); } catch { /* a read-only tree: the usage text is still the answer */ }
+    ctx.err(`${USAGE_LINES.join('\n')}\n`);
+    ctx.flush();
+    return 2;
+  }
+  // what deliver-step reads from the platform tool comes before the locks: a slow tool never holds them
+  if (Object.hasOwn(PRELOCK, command) && ctx.role === 'lead') PRELOCK[command](ctx, args);
+  if (takesLocks(command, args, ctx.role, READ_ONLY.has(command))) takeCommandLocks(locks, ctx, command, args);
+  const code = handler(ctx, args);
+  ctx.flush();
+  return code;
+}
+
+/** The path in the / spelling the rest of the core compares with (Windows hands back backslashes from realpath; A250). @param {string} p */
+function fwd(p) { return process.platform === 'win32' ? p.replaceAll('\\', '/') : p; }
+
+/**
+ * The leading `--pl-argv0 <$0>` that agent.sh's preamble passes: the typed script path, used by the bridge only when it names the core's own
+ * sibling agent.sh (same real path); anything else is ignored and the bridge uses the absolute path. It never selects what is executed.
+ * @param {string[]} args @param {string} scriptPath @param {string} cwd
+ * @returns {{ argv: string[], argv0?: string, rootScript?: string }}
+ */
+export function splitArgv0(args, scriptPath, cwd) {
+  if (args[0] !== '--pl-argv0' || args.length < 2) return { argv: args };
+  const typed = args[1];
+  const rest = args.slice(2);
+  try {
+    const sibling = fwd(realpathSync.native(path.join(path.dirname(scriptPath), 'agent.sh')));
+    if (typed === '' || typed.startsWith('-')) return { argv: rest };
+    // sh resolves `..` physically (after following a symbolic link), so the typed path is resolved the same way: joined to the working
+    // directory WITHOUT textual normalisation and handed to the C library's realpath (realpathSync.native), never to path.resolve.
+    const physical = fwd(realpathSync.native(path.isAbsolute(typed) ? typed : `${cwd}/${typed}`));
+    if (physical !== sibling) {
+      // a run worktree's agent.sh (the project's own core is the one running, see agent.sh): the worktree is the ROOT, nothing of its code is run
+      const main = fwd(realpathSync.native(path.resolve(path.dirname(scriptPath), '..', '..')));
+      const prefix = `${main}/.agents/local/worktrees/`;
+      if (physical.startsWith(prefix) && /^[^/]+\/\.agents\/scripts\/agent\.sh$/.test(physical.slice(prefix.length))) return { argv: rest, argv0: typed.split('/').includes('..') ? physical : typed, rootScript: physical };
+      return { argv: rest };
+    }
+    // the typed path is executed only when it has no `..` segment; otherwise the verified real path stands in for it
+    return { argv: rest, argv0: typed.split('/').includes('..') ? sibling : typed };
+  } catch { /* not a file: ignored */ }
+  return { argv: rest };
+}
+
+/**
+ * `dispatch ...` as a process: the specialist runner (core/dispatcher.mjs). HUP, INT and TERM go to the worker's group; the exit status is the dispatcher's.
+ * @param {Io} io @param {string[]} args the arguments after `dispatch` @returns {Promise<number>}
+ */
+function dispatchMain(io, args) {
+  const handle = startDispatch(io, args, { run });
+  for (const sig of /** @type {const} */ (['SIGHUP', 'SIGINT', 'SIGTERM'])) process.on(sig, () => handle.interrupt(sig));
+  return handle.done;
+}
+
+/** The entry point: the arguments of the process, its descriptors, its environment. @param {string} scriptPath @returns {number | Promise<number>} */
+export function main(scriptPath) {
+  proc.setOwnEnv(process.env);
+  const cwd = process.cwd();
+  const split = splitArgv0(process.argv.slice(2), path.resolve(scriptPath), cwd);
+  const io = {
+    // stdin is a getter: touching `process.stdin` puts a pipe or terminal on descriptor 0 into non-blocking mode, and every command that reads its
+    // input with `readFileSync(0)` (answer, amend, record, submit -, ...) then gets EAGAIN when the writer is not there yet and takes that for an empty
+    // input (A315). No command uses `io.stdin`; whoever asks for it pays for it.
+    env: process.env, cwd, stdout: fdWriter(1), stderr: fdWriter(2), get stdin() { return process.stdin; }, isProcess: true,
+    // from a run worktree the script that names the root is the worktree's agent.sh; the code that runs stays this core's
+    scriptPath: split.rootScript ?? path.resolve(scriptPath), argv0: split.argv0,
+    viaAgent: process.argv[2] === '--pl-argv0',
+  };
+  if (split.argv[0] === 'dispatch') return dispatchMain(io, split.argv.slice(1));
+  return run(split.argv, io);
+}
+
+const entry = process.argv[1];
+if (entry && (() => { try { return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })()) {
+  const code = main(entry);
+  if (typeof code === 'number') process.exitCode = code;
+  else void code.then((c) => { process.exitCode = c; });
+}

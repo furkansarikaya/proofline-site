@@ -1,0 +1,168 @@
+#!/usr/bin/env node
+// Validates a tdd-proof tdd.json (see ../schema/tdd.schema.json).
+// Usage: node validate-tdd.mjs <tdd.json | result.md> [--scope <path[:AC-1+AC-2],path,...>]
+// One cycle per behaviour: a path may have several cycles, one for each acceptance criterion it carries. With
+// `path:AC-1+AC-2` in --scope every listed criterion must have its own cycle at that path.
+// A .md input is read through its first ```json fenced block (team mode embeds the ledger in the result file).
+// Exit: 0 valid, 1 invalid, 2 usage/read error. No dependencies.
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, isAbsolute, join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { classify } from "./classify-red.mjs";
+
+const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const isStr = (v) => typeof v === "string" && v.trim() !== "";
+const safeRel = (p) => isStr(p) && !isAbsolute(p) && !p.split(/[\\/]/).includes("..") && !p.includes("\0");
+const STOCK = /^(test (fails?|failed)|not implemented|fails as expected|assertion (failed|error)|the test fails|failing test|todo|n\/?a|none)\.?$/i;
+export const specific = (s) => isStr(s) && s.trim().length >= 20 && !STOCK.test(s.trim());
+const KEYS = ["schema_version", "mode", "task", "cycles", "exemptions"];
+
+// A172: ids compare by key (case-insensitive, leading zeros ignored); the cycle keeps the spelling its author wrote.
+const idKey = (s) => String(s).toUpperCase().replace(/-0+(?=\d)/g, "-");
+const acsOf = (s) => (isStr(s) ? (s.match(/AC-\d+/gi) || [s.trim()]).map(idKey) : []);
+
+export function validate(doc, { scope = null, criteria = null, requireV2 = false } = {}) {
+  const errors = [];
+  const err = (p, m) => errors.push(`${p}: ${m}`);
+  if (!isObj(doc)) return ["$: expected object"];
+  for (const k of KEYS) if (!(k in doc)) err("$", `missing required "${k}"`);
+  for (const k of Object.keys(doc)) if (!KEYS.includes(k)) err("$", `unexpected "${k}"`);
+  if (requireV2 && doc.schema_version !== 2) err("$.schema_version", "must be 2: this run was started with the test measurement (measure=1 on the start row of its ledger), so the GREEN durations are required; schema_version 1 is for runs started before it");
+  else if (doc.schema_version !== 1 && doc.schema_version !== 2) err("$.schema_version", "must be 2 (1 is the older form: the GREEN duration fields are optional)");
+  if (!["team", "standalone"].includes(doc.mode)) err("$.mode", "must be team or standalone");
+  if (!isStr(doc.task)) err("$.task", "expected non-empty string");
+  const covered = new Set();
+  const proved = new Map();   // path -> Set of criteria with a cycle
+  const cycles = Array.isArray(doc.cycles) ? doc.cycles : (err("$.cycles", "expected array"), []);
+  const num = (v) => Number.isInteger(v);
+
+  cycles.forEach((c, i) => {
+    const p = `$.cycles[${i}]`;
+    if (!isObj(c)) return err(p, "expected object");
+    if (!safeRel(c.path)) err(`${p}.path`, "expected repo-relative path without ..");
+    else {
+      const seen = proved.get(c.path) || new Set();
+      const mine = acsOf(c.criterion);
+      const dup = mine.find((a) => seen.has(a));
+      if (dup !== undefined) err(`${p}.criterion`, `duplicate cycle for ${c.path} and ${dup}: one cycle per criterion`);
+      if (seen.size && !mine.length) err(`${p}.criterion`, `a second cycle for ${c.path} must name its own criterion`);
+      mine.forEach((a) => seen.add(a));
+      proved.set(c.path, seen);
+      covered.add(c.path);
+    }
+    if (!isStr(c.criterion)) err(`${p}.criterion`, "name the acceptance criterion this cycle proves");
+    if (!isObj(c.test) || !isStr(c.test.file) || !isStr(c.test.name)) err(`${p}.test`, "expected {file, name}");
+
+    const r = c.red;
+    if (!isObj(r)) err(`${p}.red`, "missing");
+    else {
+      if (!isStr(r.command)) err(`${p}.red.command`, "expected non-empty string");
+      if (!num(r.exit_code) || r.exit_code === 0) err(`${p}.red.exit_code`, "RED must exit non-zero");
+      if (r.failure_class !== "assertion") err(`${p}.red.failure_class`, `RED must fail on an assertion, got ${r.failure_class}: a ${r.failure_class} error is not RED`);
+      const k = classify(r.output_excerpt);
+      if (k.class !== "assertion") err(`${p}.red.output_excerpt`, `output classifies as ${k.class} (${k.evidence}), not as a failing assertion`);
+      if (!specific(r.expected_failure)) err(`${p}.red.expected_failure`, "needs a specific expected failure (>= 20 chars, not a stock phrase)");
+      if (typeof r.stub_written !== "boolean") err(`${p}.red.stub_written`, "expected boolean");
+    }
+    const g = c.green;
+    if (!isObj(g)) err(`${p}.green`, "missing");
+    else {
+      if (!isStr(g.command)) err(`${p}.green.command`, "expected non-empty string");
+      else if (isObj(r) && g.command !== r.command) err(`${p}.green.command`, "GREEN must run the same command as RED");
+      if (g.exit_code !== 0) err(`${p}.green.exit_code`, "GREEN must exit 0");
+      if (!isStr(g.suite_command)) err(`${p}.green.suite_command`, "expected non-empty string");
+      if (g.suite_exit_code !== 0) err(`${p}.green.suite_exit_code`, "nothing else may break: the suite must exit 0");
+      // #265 AC-2: the duration of the new test, read from the GREEN run (a number with a source line), never an estimate
+      // schema_version 2 (runs started with the test measurement, #265 package B) requires all three; schema_version 1, the older form, keeps them optional; checked when present
+      if (doc.schema_version === 2) for (const k of ["duration_ms", "duration_source", "duration_excerpt"]) if (g[k] === undefined) err(`${p}.green.${k}`, "required with schema_version 2: the duration of the new test, read from the GREEN run (use schema_version 1 only for a recording made before the test measurement)");
+      if (g.duration_ms !== undefined && (typeof g.duration_ms !== "number" || !Number.isFinite(g.duration_ms) || g.duration_ms < 0)) err(`${p}.green.duration_ms`, "expected a number of milliseconds, 0 or more, read from the GREEN run");
+      if (g.duration_source !== undefined && !["runner_output", "command_wall_time"].includes(g.duration_source)) err(`${p}.green.duration_source`, "must be runner_output or command_wall_time");
+      if (g.duration_excerpt !== undefined && (!isStr(g.duration_excerpt) || !/[0-9]/.test(g.duration_excerpt))) err(`${p}.green.duration_excerpt`, "expected the runner or timing line the duration was read from (it holds a number)");
+    }
+    const h = c.hollow_check;
+    if (!isObj(h)) err(`${p}.hollow_check`, "missing: the new test must be shown to fail without the production change");
+    else {
+      if (!["revert", "mutate"].includes(h.method)) err(`${p}.hollow_check.method`, "must be revert or mutate");
+      if (!isStr(h.worktree) || !isAbsolute(h.worktree)) err(`${p}.hollow_check.worktree`, "expected absolute worktree path");
+      if (!isStr(h.command)) err(`${p}.hollow_check.command`, "expected non-empty string");
+      else if (isObj(r) && h.command !== r.command) err(`${p}.hollow_check.command`, "must run the same command as RED");
+      if (!num(h.exit_code) || h.exit_code === 0) err(`${p}.hollow_check.exit_code`, "hollow test: the test still passed without the change");
+      if (h.failed_for_expected_reason !== true) err(`${p}.hollow_check.failed_for_expected_reason`, "must be true");
+      const k = classify(h.output_excerpt);
+      if (k.class !== "assertion") err(`${p}.hollow_check.output_excerpt`, `output classifies as ${k.class}, not as a failing assertion`);
+    }
+    if (c.refactor !== undefined && c.refactor !== null) {
+      if (!isObj(c.refactor) || !isStr(c.refactor.changes) || !isStr(c.refactor.command)) err(`${p}.refactor`, "expected {changes, command, exit_code} or null");
+      else if (c.refactor.exit_code !== 0) err(`${p}.refactor.exit_code`, "refactor only with tests green");
+    }
+  });
+
+  const ex = Array.isArray(doc.exemptions) ? doc.exemptions : (err("$.exemptions", "expected array"), []);
+  ex.forEach((e, i) => {
+    const p = `$.exemptions[${i}]`;
+    if (!isObj(e) || !safeRel(e.path)) return err(p, "expected {path, reason}");
+    if (!specific(e.reason)) err(`${p}.reason`, "needs a specific reason (>= 20 chars, not a stock phrase)");
+    if (covered.has(e.path)) err(`${p}.path`, `${e.path} has both a cycle and an exemption`);
+    covered.add(e.path);
+  });
+
+  if (scope) {
+    for (const s of scope) if (!covered.has(s)) err("$.cycles", `scope path ${s} has neither a cycle nor an exemption`);
+    for (const c of covered) if (!scope.includes(c)) err("$.cycles", `${c} is outside the scope`);
+  }
+  if (criteria) {
+    for (const [path, acs] of criteria) {
+      if (!proved.has(path)) continue;   // exempt or missing paths are reported above
+      for (const a of acs) if (!proved.get(path).has(idKey(a))) err("$.cycles", `${path} carries ${a} but no cycle proves it: one cycle per criterion`);
+    }
+  }
+  return errors;
+}
+
+// A run started with the test measurement (#265 package B, A275) carries measure=1 on the start row of its sealed LEDGER.log. The ledger is found from the input
+// file: the run folder it sits in (.agents/runs/<ID>/...), else the run named by .agents/local/ACTIVE_RUN (for a file outside any .agents folder, the project that holds the working directory). No ledger found means an older or unmanaged setting: version 1 stays valid.
+export function runRequiresV2(file, cwd = process.cwd()) {
+  // a file outside any .agents folder (a tdd.json written to a scratch path): the project is then the one that holds the working directory
+  let parts = resolve(file).split(sep);
+  let at = parts.lastIndexOf(".agents");
+  if (at < 0) {
+    parts = resolve(cwd).split(sep);
+    let up = parts.length;
+    while (up > 0 && !existsSync(join(parts.slice(0, up).join(sep) || sep, ".agents", "local", "ACTIVE_RUN"))) up--;
+    if (up === 0) return false;
+    parts = [...parts.slice(0, up), ".agents"];
+    at = parts.length - 1;
+  }
+  const agents = parts.slice(0, at + 1).join(sep) || sep;
+  let runDir = null;
+  if (parts[at + 1] === "runs" && parts[at + 2]) runDir = join(agents, "runs", parts[at + 2]);
+  else if (existsSync(join(agents, "local", "ACTIVE_RUN"))) {
+    const id = readFileSync(join(agents, "local", "ACTIVE_RUN"), "utf8").trim();
+    if (/^[A-Za-z0-9_-]+$/.test(id)) runDir = join(agents, "runs", id);
+  }
+  if (!runDir || !existsSync(join(runDir, "LEDGER.log"))) return false;
+  return readFileSync(join(runDir, "LEDGER.log"), "utf8").split("\n").some((l) => / event=start /.test(l) && / detail=.*\bmeasure=1(\s|$)/.test(l));
+}
+
+export function loadDoc(file) {
+  const text = readFileSync(file, "utf8");
+  if (!file.endsWith(".md")) return JSON.parse(text);
+  const m = /```json\s*\n([\s\S]*?)\n```/.exec(text);
+  if (!m) throw new Error("no ```json fenced block found");
+  return JSON.parse(m[1]);
+}
+
+const main = () => {
+  const args = process.argv.slice(2);
+  const i = args.indexOf("--scope");
+  const entries = i >= 0 ? args.splice(i, 2)[1].split(",").map((s) => s.trim()).filter(Boolean) : null;
+  const scope = entries ? entries.map((e) => e.replace(/:AC-.*$/, "")) : null;
+  const criteria = entries ? new Map(entries.filter((e) => /:AC-/.test(e)).map((e) => [e.replace(/:AC-.*$/, ""), e.replace(/^.*?:(?=AC-)/, "").split("+").filter(Boolean)])) : null;
+  if (args.length !== 1) { console.error("usage: validate-tdd.mjs <tdd.json|result.md> [--scope <path[:AC-1+AC-2],path,...>]"); process.exit(2); }
+  let doc;
+  try { doc = loadDoc(args[0]); } catch (e) { console.error(`cannot read JSON: ${e.message}`); process.exit(2); }
+  const errors = validate(doc, { scope, criteria, requireV2: runRequiresV2(args[0]) });
+  if (errors.length) { console.error(errors.join("\n")); process.exit(1); }
+  console.log("valid");
+};
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();

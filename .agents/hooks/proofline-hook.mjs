@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+// @ts-check
+// proofline runtime hook, Node form (ADR 0001 stage 3): one Node process per event for Claude Code and Codex. It replaced the shell hook (A210: deleted).
+//
+//   node proofline-hook.mjs <pretool|posttool|subagent-start|subagent-stop|prompt|stop|session> [claude|codex]
+//
+// stdin: the runtime's hook JSON.  The project's core is imported in process
+// (<root>/.agents/scripts/proofline-core.mjs, A194), so a plugin and a project of different versions behave as they did with agent.sh.
+//
+// Layout: this file reads the input, builds the context (lib/context.mjs), hands the event to events/<name>.mjs and prints what it returns.
+//   events/<name>.mjs  export async function handle(ctx): Promise<string | undefined>   the stdout line (with its newline) or nothing
+//   lib/               text (jesc, jget, safe, sha), fsx (writes that refuse links), agent (the project's commands), context
+// An unexpected exception fails closed: PreToolUse denies while a run exists; the other events print the error on stderr and exit 1.
+import { readFileSync, realpathSync, writeSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { EVENTS, buildContext, finish } from './lib/context.mjs';
+import { rmf } from './lib/fsx.mjs';
+import { isWin } from './lib/text.mjs';
+import { screenEvent } from './lib/winabort.mjs';
+import { yieldsToOtherWiring } from './lib/yield.mjs';
+
+const here = fileURLToPath(new URL('.', import.meta.url));
+
+/** @returns {Buffer} */
+function readStdin() {
+  try { return readFileSync(0); } catch { return Buffer.alloc(0); }
+}
+
+/** @param {number} fd @param {string} text */
+function writeOut(fd, text) {
+  const buf = Buffer.from(text, 'utf8');
+  let off = 0;
+  while (off < buf.length) {
+    try { off += writeSync(fd, buf, off); } catch (e) {
+      if (/** @type {NodeJS.ErrnoException} */ (e).code === 'EAGAIN') continue;
+      return;
+    }
+  }
+}
+
+/** @param {import('./lib/context.mjs').HookContext} c @param {unknown} e */
+function failClosed(c, e) {
+  const text = e instanceof Error ? (e.stack ?? e.message) : String(e);
+  if (c.ev === 'pretool' && (c.act !== '' || !c.installed)) {
+    if (c.installed) writeOut(1, `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `proofline: the hook failed with an internal error while run ${c.act} is active; failing closed` } })}\n`);
+    writeOut(2, `proofline: internal error in the ${c.ev} hook: ${text}\n`);
+    return 0;
+  }
+  writeOut(2, `proofline: internal error in the ${c.ev} hook: ${text}\n`);
+  return c.ev === 'pretool' ? 0 : 1;
+}
+
+/** @param {string[]} argv @returns {Promise<number>} the exit status */
+export async function main(argv) {
+  const ev = argv[0] ?? '';
+  const rt = argv[1] ?? 'claude';
+  if (yieldsToOtherWiring(here, ev, rt, process.env)) return 0;   // the same event is wired by the old shell string (or by the project, for the plugin): handled once
+  const raw = readStdin();
+  const screened = screenEvent(ev, raw, isWin());   // before anything touches the file system: Node aborts on some Windows paths and an abort is not a block (lib/winabort.mjs)
+  if (screened !== null) { if (screened !== '') writeOut(1, screened); return 0; }
+  const c = await buildContext(ev, rt, raw, process.env);
+  if (!c) return 0;
+  try {
+    if (c.ev !== 'pretool' && !c.installed) return 0;
+    if (!EVENTS.includes(ev)) { writeOut(2, 'usage: proofline-hook.mjs <pretool|posttool|subagent-start|subagent-stop|prompt|stop|session> [claude|codex]\n'); return 0; }
+    const mod = await import(pathToFileURL(`${here}events/${ev}.mjs`).href);
+    const out = await mod.handle(c);
+    if (typeof out === 'string' && out !== '') writeOut(1, out);
+    if (c.agents?.abandoned) { finish(c); process.exit(0); } // a stopped worker may still be waiting in a lock
+    return 0;
+  } catch (e) {
+    return failClosed(c, e);
+  } finally {
+    finish(c);
+  }
+}
+
+/** True when this file is the program node was started with: both sides by real path (a project under a symlinked folder, /tmp on macOS, must still run the hook, not fall silent). @returns {boolean} */
+function isEntry() {
+  if (!process.argv[1]) return false;
+  try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return fileURLToPath(import.meta.url) === process.argv[1]; }
+}
+
+if (isEntry()) {
+  main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (e) => { writeOut(2, `proofline: ${e instanceof Error ? e.stack : e}\n`); process.exitCode = 1; });
+}

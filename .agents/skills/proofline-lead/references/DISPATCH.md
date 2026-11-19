@@ -1,0 +1,136 @@
+# Dispatch: runtime choice, assignment, results
+
+`A` = `.agents/scripts/agent.sh`, `D` = `.agents/scripts/dispatch.sh`. One dispatch = one specialist step on
+one runtime. Specialists never dispatch anyone (no swarm, no recursion).
+
+## 1. Which path (D6)
+
+1. Role runtime: `A config-get runtime.roles.<role>`; empty -> the group key:
+   `runtime.reviewers` for `reviewer security_reviewer qa verifier`, `runtime.worker` for every other
+   specialist (`task_author explorer architect data_architect designer implementer`). Empty -> `claude`.
+2. Path:
+
+| Lead | Role runtime | Path |
+|---|---|---|
+| Claude Code | `claude` | **Agent path**: `A decide <ID> <role> [--focus F] --agent-path` exactly once (a bare `decide` is refused, A171; `--dry` reads the decision and writes nothing); take `model=` (and `effort=`) from its output (A200: `decide --agent-path` is refused for a role the configuration gives to another runtime; the error names the `D` command to use instead); call the Agent tool with `subagent_type` = `proofline-<role>` with `_` written as `-` (`proofline-security-reviewer`; plugin install: `proofline:proofline-security-reviewer`; use the name the Agent tool lists), `model` = the decided model, `prompt` = the assignment. |
+| Claude Code | `codex` or a command-template runtime | **dispatch path**: `D <ID> <role> [--focus F] --prompt-file <assignment file>`. |
+| Codex, terminal agent | any | **dispatch path**. |
+
+- Never call `A decide` before `D` (also not for a failover from the Agent path): dispatch.sh decides
+  itself, and a second decision is ledgered and can spend the escalation budget twice. Never run both
+  paths for one step.
+- Recording: Agent path -> the SubagentStop hook pipes the subagent's last message to `A record` with
+  `AGENT_ROLE` from the subagent type. dispatch path -> dispatch.sh records. The lead records nothing.
+- A dropped connection or an SSL/TLS error is retried by `D` itself (A200): the same step on the same runtime, resuming from the state the worker left (a RESUME note goes into its prompt), at most `dispatch.network_retries` times (default 3, at most 6) after a growing wait (`dispatch.network_backoff_seconds`, default 15, doubling). Do not re-dispatch by hand meanwhile; when the retries are spent `D` exits 6 with the network guidance. A sandbox that blocks the network is not retried.
+- Exit codes of `D`: 0 recorded, 1 task failure or record rejected, 2 usage/config, 5 NEEDS_INPUT, 6
+  BLOCKED, 124 timeout, 143 stopped from outside (the worker was stopped too; see FAILOVER.md, an interrupted implementer). 5 -> the question is already pending (`A ask` by dispatch.sh or the specialist's
+  NEEDS_INPUT): [HANDOFF.md](HANDOFF.md); 6 -> read `BLOCKED_REASON` from check-result, or from `D`'s own stdout when
+  `D` itself blocks (a worker that wrote nothing leaves no `.md` to check); 124 -> re-dispatch
+  once, then BLOCKED.
+- **Start `D` for a worker in the background (A224).** An implementer or any worker takes many minutes. Run `D` with the Bash tool's
+  `run_in_background` (or the longest tool timeout), then keep your turn alive and wait for it with the bounded wait loop of the next bullet (never by ending your turn to wait for a notice), then read its exit code. Never run it in the
+  foreground under the default tool timeout or a `timeout` of your own: it ends the step half done. Since the user's decision of 2026-11-07 the script closes
+  the implementer's write window itself after such a kill (`D` stopped by TERM, HUP or INT stops its worker, then closes the window with status 128 plus the signal; after a SIGKILL of
+  its group the worker's guardian kills the worker and then closes it with status 137, within seconds), so the next `D` continues from the RESUME note. Only when the window could not be closed
+  is the next `D` refused (`window-open refused`); that recovery is in [FAILOVER.md](FAILOVER.md) (an interrupted implementer).
+- **Keep your turn alive until that `D` has finished (A227).** A background job does not wake a lead that has ended its turn: in a
+  headless or one-shot session (`claude -p`, a batch run by a script) nothing calls the lead again, so the run stays at its step
+  and the result of `D` is never read. After starting `D` in the background you therefore never end your turn, and never answer
+  "I will continue when it reports back", while a dispatch of your run is in flight (`agent.sh next` says
+  `next=wait: dispatch.sh ... in flight (pid N ...)`). Wait inside the turn with the Bash tool (one of the tools its role lists; no tool
+  outside that list is invented): a bounded wait loop with the longest tool timeout (`timeout` 600000), for example
+  `n=0; while kill -0 N 2>/dev/null && [ "$n" -lt 110 ]; do sleep 5; n=$((n+1)); done; kill -0 N 2>/dev/null && echo "still running"`
+  (`N` is the pid from `next` or from `dispatch/*.running`). When it prints `still running`, run the same wait call again, as
+  many times as it takes; a foreground `sleep` chain is refused by the Bash tool, the loop is the sanctioned wait. Do not read the
+  log or start other work meanwhile (next bullet). Only when the process is gone, read the exit code and the
+  `dispatch/<NNN>-<role>-<runtime>.md` result and go on. The same holds for every dispatch of a batch step.
+- `D` is synchronous and can take minutes: its `dispatch/<NNN>-<role>-<runtime>.md` and `.log` stay empty until it
+  returns, and a `.running` marker sits beside them meanwhile. Never read those files, or start the same step
+  again, while the `D` command is still running (not even from a parallel tool call): wait for it to return. An
+  empty file is not a result. A worker that wrote nothing makes `D` exit 6 with `BLOCKED_REASON: ... produced no output`.
+- Parallel: explorers (up to `pipelines.<CLASS>.max_explorers`) and gate roles (up to
+  `budgets.max_parallel_reviewers`) in one message / as background commands. Everything else is sequential.
+- `A decide` is lead-only and is never re-run to obtain a different model; overrides
+  (`--model`, `--effort`, `--runtime`) only on the user's instruction, passed to `decide` or `D` once.
+
+## 2. The assignment
+
+The whole prompt a specialist gets after its role instructions. Keys in this order, one per line; a key
+that does not apply is omitted, never left empty. Plain text, at most what the step needs. On the dispatch
+path the file goes to `.agents/local/assignments/<ID>/<NNN>-<role>[-<focus>].md` (never inside the run
+directory, never `$TMPDIR`: the runtime hook lets the lead write inside `.agents/local/` only under
+`.agents/local/assignments/`) and the first four keys are omitted because dispatch.sh writes them.
+
+```
+TASK: <ID>
+ROLE: <role id>
+FOCUS: <plan|rules|tests|data|rules+tests>          reviewer only (REVIEW_RULES = rules, run as proof-review focus rules+bugs)
+RUN_DIR: .agents/runs/<ID>
+OBJECTIVE: <one sentence: what this step must produce>
+ALLOWED_SCOPE: <space-separated repo paths>          explorer: read scope; implementer: frozen scope or the round's fix_scope; others: omit (role default)
+READ: <space-separated run artifacts>                 only those the role's `reads:` names and that exist
+WRITE: <run-relative path>                            the one owned artifact (implementer: "product code in ALLOWED_SCOPE" + worker-evidence)
+SKILL: <skill name> team mode
+FIX_ROUND: <n>                                        fix rounds only
+FINDINGS:                                             fix rounds and gate re-runs only: the failing rows verbatim
+| id | severity (blocking\|info) | path:line | finding | evidence |
+|---|---|---|---|---|
+| ... |
+FILES_CHANGED: <paths changed in the previous round>  fix rounds and gate re-runs only
+ANSWERS:                                              restart after NEEDS_INPUT only: the user's answers verbatim, numbered as the questions
+1. <user's answer text>
+STOP: <one sentence: when to stop and return>
+```
+
+Rules:
+
+- Never include: the lead's conversation, another specialist's result body or transcript, raw logs, a
+  diff, file contents, or an opinion about the expected verdict. Artifacts are named, not pasted.
+- `FINDINGS` carries only table rows (never a reviewer's prose). A re-run gate role gets its own previous
+  rows; the implementer gets the union of the failing gates' rows.
+- Never override the template's WRITE line or invent another evidence place: the implementer's RED and GREEN evidence goes through `agent.sh worker-evidence` only (not scratch/, not a tdd.json), and `submit` DONE is refused without it (A332).
+- An assignment is English throughout and carries no user language: a specialist writes every file, report and
+  question in English (A33); only the lead talks to the user, in the user's language.
+- Defaults per role (from the role sources):
+
+| Role | OBJECTIVE / WRITE / STOP default |
+|---|---|
+| task_author | write TASK.md for the request / `TASK.md` (+ `design/INTENT.md` with intent-grill) / canonical sections complete or questions |
+| explorer | answer one evidence question as a claims table (`| id | severity | path:line | finding | evidence |`, one verified `path:symbol` per row; prose is sent back to be redone) / `reports/NNN-explorer.md` (name assigned by `submit` from the explorer's `--report`) / the evidence-map stop condition |
+| architect | `## Architecture` text / `design/ARCHITECTURE.md` / sections drafted |
+| data_architect | `## Data` text / `design/DATA.md` / migration plan classified |
+| designer | `## UI` text / `design/UI.md` / spec complete |
+| qa (plan) | QA scenarios for each AC / `QA_PLAN.md` / every AC covered |
+| implementer | implement the frozen plan / product code in scope / every scope path has RED+GREEN or the round's findings are fixed |
+| reviewer | gate `REVIEW_<FOCUS>` / `reviews/proof-review/<dir>/REPORT.md`, `reviews/test-trust/tests/REPORT.md` or `reviews/data-design/REVIEW.md` / gate rule applied |
+| security_reviewer | gate `SECURITY` / `security/REPORT.md` / gate rule applied |
+| qa (gate) | gate `QA` / `QA_REPORT.md` / every frozen scenario run |
+| verifier | gate `VERIFY` / `VERIFY.md` / every AC proven or failed |
+
+## 3. Implementer
+
+Exactly one per run at a time, and only in this worktree.
+
+- The implementer's write window is opened and closed by the runtime, never by the lead: Agent path ->
+  the SubagentStart / SubagentStop hooks; dispatch path -> `dispatch.sh`. The lead calls neither
+  `window-open` nor `window-close` and makes the dispatch call exactly once per step. The designer's
+  writes are bracketed the same way.
+- A failed implementer's partial edits stay for inspection; undoing them is destructive (user approval).
+- Fix rounds: a new implementer call with `FIX_ROUND`, `FINDINGS`, `FILES_CHANGED`, `ALLOWED_SCOPE` = the
+  union `fix_scope` plus the plan-scope paths sharing a criterion with a failing finding (A123): the `fix_path=` lines of `agent.sh next` (codex runtime: dispatch.sh continues the same thread when it supports it).
+
+## 4. Consuming a result
+
+- Agent path: the subagent's final message is the header + table; read nothing else. dispatch path:
+  `node <skill-dir>/scripts/check-result.mjs .agents/runs/<ID>/dispatch/<NNN>-<role>-<runtime>.md
+  --role <role> --task <ID>` and read only its JSON.
+- Whether it counted: `A pipeline <ID>` (gate status) or `A next <ID>`; never the result's own words.
+- check-result exit 1 (malformed): the record was rejected too; re-dispatch once with the messages in
+  `FINDINGS`-free form ("your last result was rejected: <messages>"); a second failure is BLOCKED.
+
+## 5. Codex lead
+
+A Codex lead needs `.git` write access to create the task branch. In interactive use, approve the git
+commands; in headless use, run the lead with `danger-full-access`. Dispatched workers retain
+`workspace-write` plus access to the run directory. Product-code ownership is still enforced by the
+proofline hooks and gates.

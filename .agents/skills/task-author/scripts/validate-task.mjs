@@ -1,0 +1,444 @@
+#!/usr/bin/env node
+// Validates a canonical proofline TASK.md and handles per-target templates (D17, D25).
+// No dependencies. Exit codes: 0 valid, 1 invalid, 2 usage or read error.
+//   node validate-task.mjs TASK.md [--json] [--tasks-dir DIR]   (DIR: where depends_on ids are looked up)
+//   node validate-task.mjs --resolve-template <target> [--root DIR]
+//   node validate-task.mjs --import ISSUE.md --template T.md       (JSON: fields, custom, missing)
+//   node validate-task.mjs --check-export ISSUE.md --template T.md (every template section filled)
+
+import { readFileSync, existsSync, readdirSync, statSync, openSync, readSync, closeSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const CLASSES = ["TRIVIAL", "STANDARD", "COMPLEX", "CRITICAL"];
+export const REQUIRED = ["Goal", "Context", "Acceptance criteria", "Out of scope", "Constraints", "Risks", "Suggested class", "Verification commands"];
+
+const BASES = "return display show reject respond redirect create delete update persist emit log send render print exit fail block allow deny store contain list output save remove raise throw appear hide disable enable equal produce report retain preserve increment decrement expire retry complete start stop become accept open close load validate match include exclude change remain stay keep receive charge refund notify call hold get set reset reload refresh rename move copy sort filter lock unlock grant revoke mask hash skip ignore exceed reach cap limit trigger run execute pass publish import export resume pause cancel expose hide".split(" ");
+export const OBSERVABLE = new RegExp(`\\b(${BASES.join("|")})(s|es|ed|d|ing)?\\b`, "i");
+export const VAGUE = /\b(properly|correctly|appropriately|appropriate|nice(ly)?|good|great|better|sensible|reasonable|smooth(ly)?|as expected|user[- ]friendly|intuitive|robust|seamless(ly)?|fast|quickly|efficient(ly)?|etc\.?|and so on|works? well|should work)\b/i;
+const IMPL = /\b(implemented (with|via|using)|refactor|add(s|ed)? an? (class|function|method|column|index|table|interface)|use(s|d)? (the )?\w+ (library|framework|pattern))\b/i;
+const PLACEHOLDER = /(<[A-Za-z][A-Za-z -]*>|\bTBD\b|\bTODO\b|\?\?\?|\bQUESTION-\d+\b)/;
+
+const stripComments = (s) => s.replace(/<!--[\s\S]*?-->/g, "");
+
+export function sections(text) {
+  const out = new Map();
+  let cur = null;
+  for (const line of stripComments(text).split(/\r?\n/)) {
+    const m = /^## (.+?)\s*$/.exec(line);
+    if (m) { cur = m[1]; if (!out.has(cur)) out.set(cur, []); continue; }
+    if (cur) out.get(cur).push(line);
+  }
+  return out;
+}
+
+export function parseTask(text) {
+  const secs = sections(text);
+  const h1 = /^# Task: (\S+) (?:—|--|-) (.+?)\s*$/m.exec(stripComments(text));
+  const acs = [];
+  for (const line of (secs.get("Acceptance criteria") || [])) {
+    const m = /^(?:[-*]\s+)?AC-(\d+):\s*(.*)$/.exec(line);
+    if (m) acs.push({ n: Number(m[1]), text: m[2].trim() });
+    else if (acs.length && /^\s+\S/.test(line)) acs[acs.length - 1].text += " " + line.trim();
+  }
+  const first = (secs.get("Suggested class") || []).map((l) => l.trim()).find(Boolean) || "";
+  const cls = /^(TRIVIAL|STANDARD|COMPLEX|CRITICAL)\b\s*(?:[—–:-]+\s*(\S.*))?$/.exec(first);
+  return { id: h1?.[1], title: h1?.[2], acs, cls: cls?.[1], indicator: cls?.[2], secs };
+}
+
+// A105: in a COMPLEX or CRITICAL task a defect the work runs into is declared, not folded into the task. The
+// request (title, Goal, the user's `>` quotes, the Suggested class line) decides whether the task itself is a
+// defect fix; the control plane applies the same rule at freeze (agent.sh task_defect_errors).
+const REQUEST_DEFECT = /\b(bugs?|defects?|regression|broken|fix|fixes|fixed|wrong|incorrect|crash(es)?|disappears?|disappeared|unreachable)\b|hata|bozuk|kaybol|yanlış|düzelt/i;
+const MENTION = /\b(defects?|bugs?|regression|fix|fixes|fixing)\b|kusur|düzelt/i;
+const SCANNED = ["Context", "Acceptance criteria", "Constraints", "Risks"];
+const isDefectHeading = (l) => /^#{2,3}\s+Pre-existing defects\s*$/i.test(l);
+
+export function defectEntries(text) {
+  const out = [];
+  let i = false;
+  for (const l of stripComments(text).split(/\r?\n/)) {
+    if (/^#{1,3}\s/.test(l)) { i = isDefectHeading(l); continue; }
+    if (i && /^\s*[-*]\s+\S/.test(l)) out.push(l.trim());
+  }
+  return out;
+}
+
+export function defectErrors(text) {
+  const src = stripComments(text);
+  const errors = [];
+  const entries = defectEntries(src);
+  for (const e of entries) if (!/decision:\s*(report|fix)\b/i.test(e)) errors.push(`"## Pre-existing defects" entry without \`decision: report\` or \`decision: fix\`: ${e}`);
+  const lines = src.split(/\r?\n/);
+  let sec = "", sub = false;
+  const request = [], mentions = [];
+  for (const l of lines) {
+    const h2 = /^##\s+(.+?)\s*$/.exec(l);
+    if (h2) { sec = h2[1]; sub = isDefectHeading(l); continue; }
+    if (/^###\s/.test(l)) { sub = isDefectHeading(l); continue; }
+    if (/^\s*>/.test(l) || /^# Task:/.test(l) || sec === "Goal" || sec === "Suggested class") { request.push(l); continue; }
+    if (!sub && SCANNED.includes(sec) && MENTION.test(l)) mentions.push(l.trim());
+  }
+  const big = /^(COMPLEX|CRITICAL)\b/.test((sections(src).get("Suggested class") || []).map((l) => l.trim()).find(Boolean) || "");
+  if (big && !REQUEST_DEFECT.test(request.join("\n")) && mentions.length && !entries.length) {
+    errors.push(`the task mentions a defect or a fix the request does not ask for (${mentions[0].slice(0, 120)}): list it under "## Pre-existing defects" as \`- <path:symbol>: <what> -- decision: report\` (left unchanged, named in the completion report); \`decision: fix\` only when the user asked in their own words, and the freeze then needs the user's \`scope\` approval`);
+  }
+  return errors;
+}
+
+export const SIZES = ["S", "M", "L"];
+// A202: the task type (front matter `type:`); a task without one is a feature. Proposed by the task author, changed only by the user.
+export const TYPES = ["feature", "bug", "refactor", "content", "docs", "chore"];
+// required sections per type (a bug without reproduction steps, expected and actual behaviour and environment is not a bug report)
+export const TYPE_SECTIONS = {
+  bug: ["Reproduction steps", "Expected and actual behaviour", "Environment"],
+  refactor: ["Behaviour unchanged"],
+};
+const EXISTING_TESTS_PASS = /\bexisting\s+tests?\b[^\n]*\b(pass|passes|passing|stay|stays|remain|remains|green)\b|\b(pass|passes|passing|green)\b[^\n]*\bexisting\s+tests?\b/i;
+
+// ASCII slug of a title, the same rules as control-plane/agents/scripts/core/slug.mjs (Turkish and other Latin letters first, max 48)
+const SPECIAL = { "ı": "i", "İ": "i", "ß": "ss", "æ": "ae", "Æ": "ae", "œ": "oe", "Œ": "oe", "ø": "o", "Ø": "o", "đ": "d", "Đ": "d", "ł": "l", "Ł": "l" };
+export function slugify(title) {
+  const ascii = String(title).replace(/[ıİßæÆœŒøØđĐłŁ]/g, (c) => SPECIAL[c]).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return ascii.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48).replace(/-$/, "");
+}
+// A task file is named <ID>-<slug>.md. Returns a warning (with the proposed name) for a file named only by its ID or only by a slug.
+export function fileNameWarning(id, title, fileName) {
+  if (!id || !fileName || !fileName.endsWith(".md") || fileName === "TASK.md") return null;
+  const stem = fileName.slice(0, -3);
+  if (new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-FU\\d+$`).test(stem)) return null;
+  const slug = stem.startsWith(`${id}-`) ? stem.slice(id.length + 1) : null;
+  if (slug && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) && slug !== slugify(id)) return null;
+  const want = slugify(title);
+  return `file name "${fileName}" is not <ID>-<slug>.md${want ? ` (propose "${id}-${want}.md"; a queued task is renamed only on the user's approval, a started or reported task never)` : ""}`;
+}
+// Optional link from a criterion to the PRD requirements it satisfies (product-spec): the criterion ends with
+// `Covers: FR-1, NFR-2` (usually on its own indented line under it); the task names the PRD with front matter `prd: <slug>`.
+export const COVERS = /\bCovers:\s*(.*?)\s*\.?\s*$/;
+const REQ_ID = /^N?FR-\d+$/i;   // A172: ids are compared by key (case-insensitive); the task keeps the spelling its author wrote
+
+// Optional YAML front matter (size, sprint, assignee, depends_on, prd); flat `key: value` lines only.
+export function frontMatter(text) {
+  // the block sits right after the `# Task:` line (line 1 stays the H1); a leading block is still accepted
+  let m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text), pre = "";
+  if (!m) {
+    const h = /^(# Task:[^\n]*\r?\n)(?:[ \t]*\r?\n)*(?:\*\*Status:\*\*[^\n]*\r?\n(?:[ \t]*\r?\n)*)?---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
+    if (!h) return { meta: {}, body: text };
+    m = [h[0], h[2]]; pre = h[1];
+  }
+  const meta = {};
+  let key = null, types = 0;
+  for (const l of m[1].split(/\r?\n/)) {
+    const item = /^\s+-\s+(.*?)\s*$/.exec(l);
+    if (item && key) { meta[key] = [meta[key], item[1]].filter(Boolean).join(","); continue; }
+    const kv = /^([A-Za-z_]+):\s*(.*?)\s*$/.exec(l);
+    if (kv) { key = kv[1]; if (key === "type") types++; meta[key] = kv[2].replace(/^\[(.*)\]$/, "$1").replace(/^(["'])(.*)\1$/, "$2"); }
+  }
+  if (types > 1) meta.type = "duplicate";   // two `type:` lines: never guess which one counts (the freeze reads it the same way)
+  return { meta, body: pre + text.slice(m[0].length) };
+}
+
+// Task ids found next to a task: `<dir>/*.md` (file name and H1) and `<dir>/*/TASK.md` (H1).
+function knownIds(dirs) {
+  const ids = new Set(), names = [];
+  ids.has2 = (d) => ids.has(d) || names.some((c) => c.startsWith(`${d}-`));
+  // A202: only the first line (the title) of a sibling task is read, never its body: a finished task's completion report is not loaded.
+  const h1 = (f) => { try { const fd = openSync(f, "r"); const b = Buffer.alloc(1024); const n = readSync(fd, b, 0, 1024, 0); closeSync(fd); const m = /^# Task: (\S+)/m.exec(b.toString("utf8", 0, n).split(/\n## /)[0]); if (m) ids.add(m[1]); } catch {} };
+  for (const d of dirs) {
+    let entries = [];
+    try { entries = readdirSync(d); } catch { continue; }
+    for (const n of entries) {
+      const f = join(d, n);
+      if (n.endsWith(".md")) { ids.add(basename(n, ".md")); h1(f); }
+      else { try { if (statSync(f).isDirectory()) {
+        ids.add(n); h1(join(f, "TASK.md"));
+        // lifecycle folders (<dir>/{todo,done,...}/<ID>.md or <ID>-*.md)
+        for (const c of readdirSync(f)) if (c.endsWith(".md")) { ids.add(basename(c, ".md")); names.push(c); h1(join(f, c)); }
+      } } catch {} }
+    }
+  }
+  return ids;
+}
+
+// A294: `## Test exceptions` is OPTIONAL in a task file. The task author PROPOSES a line there when it can foresee that the plan will need a real wait, a budget or a measurement;
+// the night batch lists it with the sha256 of its exact bytes and only the user's approval of the batch accepts it. The batch (core/batchplan.mjs) reads the section with
+// testreview.mjs `exceptionLines` + `parseException` over the file's BYTES and silently drops a line that does not parse, so a malformed line would be a proposal that
+// never reaches the user. A skill is installable alone and cannot import the control plane: this is the same cut and the same grammar as testreview.mjs (and as
+// validate-plan.mjs `testExceptionProblems`); tests/core/task-author-exceptions.test.mjs compares it with `parseException` over a corpus. Nothing is trimmed: the
+// section is cut from the raw text (comments are not stripped: the batch would list a line inside a comment too), one trailing CR per line is the only normalisation.
+// `bytes` is the file read as latin1 (what the batch reads); without it the text is encoded as UTF-8 first.
+// The batch lists at most 50 lines per task and none longer than 1000 BYTES (exceptionsapproval.mjs BATCH_EXC_MAX_LINES / BATCH_EXC_MAX_LINE; the line is a latin1 string there, so
+// its length is its bytes); beyond that it lists none of the task's lines. The test compares these two numbers with the batch's.
+export const BATCH_LIMITS = { lines: 50, bytes: 1000 };
+export function testExceptionErrors(full, bytes) {
+  const text = bytes ?? Buffer.from(full, "utf8").toString("latin1");
+  const errors = [];
+  let inside = false, valid = 0;
+  const raw = text.split("\n");
+  if (raw[raw.length - 1] === "") raw.pop();
+  for (const l0 of raw) {
+    if (l0.startsWith("## ")) { inside = l0.slice(3).trim() === "Test exceptions"; continue; }
+    if (!inside) continue;
+    const l = l0.endsWith("\r") ? l0.slice(0, -1) : l0;
+    if (l === "") continue;
+    if (l.length > 4096) { errors.push('section "## Test exceptions": a line is longer than 4096 characters, so it is no exception and the batch would not list it'); continue; }
+    const head = /^[ \t]*[-*][ \t]*(wait|budget|measure):/.exec(l);
+    const rest = head ? l.slice(head[0].length) : "";
+    const sep = rest.search(/[ \t](?:--|—)[ \t]/);
+    const target = sep < 0 ? "" : rest.slice(0, sep).trim();
+    const reason = sep < 0 ? "" : rest.slice(sep).replace(/^[ \t](?:--|—)[ \t]/, "").trim();
+    if (!head || sep < 0 || target === "" || reason.length < 20) errors.push(`section "## Test exceptions": expected "- wait|budget|measure: <test file or \\"test name\\"> -- <reason of at least 20 characters>", got "${l.trim().slice(0, 60)}" (the batch would not list this line${l.includes("\u00e2\u0080\u0094") ? "; it reads bytes, so use \`--\` as the separator, not an em dash" : ""})`);
+    else { valid++; if (l.length > BATCH_LIMITS.bytes) { errors.push(`section "## Test exceptions": a line is ${l.length} bytes; the batch would not list it (limit ${BATCH_LIMITS.bytes} bytes per line): "${l.slice(0, 40)}"`); } }
+  }
+  if (valid > BATCH_LIMITS.lines) errors.push(`section "## Test exceptions": ${valid} lines; the batch would not list any of them (limit ${BATCH_LIMITS.lines} lines per task)`);
+  return errors;
+}
+
+export function validate(full, opts = {}) {
+  const errors = [], warnings = [];
+  const { meta, body: text } = frontMatter(full);
+  if ("size" in meta && !SIZES.includes(meta.size)) errors.push(`front matter size must be one of ${SIZES.join("|")}`);
+  if ("sprint" in meta && !meta.sprint) errors.push("front matter sprint is empty (positive integer or label)");
+  if ("assignee" in meta && !meta.assignee) errors.push("front matter assignee is empty");
+  let type = String(meta.type ?? "feature").toLowerCase();
+  if (type === "defect") { warnings.push("front matter type `defect` is the old spelling of `bug`; use `type: bug`"); type = "feature"; }   // still triggers debug-proof in agent.sh, but has no new sections
+  else if ("type" in meta && !TYPES.includes(type)) errors.push(`front matter type must be one of ${TYPES.join("|")}`);
+  if ("prd" in meta && !/^[a-z0-9][a-z0-9-]*$/.test(meta.prd)) errors.push("front matter prd must be the PRD's slug (lowercase letters, digits, -)");
+  if ("depends_on" in meta) {
+    const deps = meta.depends_on.split(/[\s,]+/).filter(Boolean);
+    if (opts.tasksDirs?.length) {
+      const known = knownIds(opts.tasksDirs);
+      for (const d of deps) if (!known.has2(d)) errors.push(`depends_on id "${d}" matches no task in ${opts.tasksDirs.join(", ")}`);
+    }
+  }
+  const t = parseTask(text);
+  validateOptionalFields(meta, t, errors, warnings, opts);   // A202
+  if (!t.id) errors.push("H1 must be `# Task: <ID> — <title>`");
+  for (const name of REQUIRED) {
+    const body = t.secs.get(name);
+    if (!body) errors.push(`missing section "## ${name}"`);
+    else if (!body.some((l) => l.trim())) errors.push(`section "## ${name}" is empty`);
+  }
+  for (const name of TYPE_SECTIONS[type] || []) {
+    const body = t.secs.get(name);
+    if (!body) errors.push(`a ${type} task needs the section "## ${name}"`);
+    else if (!body.some((l) => l.trim())) errors.push(`section "## ${name}" is empty`);
+  }
+  if (type === "refactor" && !t.acs.some((ac) => EXISTING_TESTS_PASS.test(ac.text))) errors.push("a refactor task needs an acceptance criterion that the existing tests pass unchanged (the safety net), for example `AC-2: the existing tests pass without changes`");
+  if (t.acs.length === 0 && (t.secs.get("Acceptance criteria") || []).some((l) => l.trim())) errors.push("no acceptance criteria in the form `AC-<n>: <text>`");
+  const covers = {};
+  t.acs.forEach((ac, i) => {
+    if (ac.n !== i + 1) errors.push(`AC numbering must be sequential from AC-1 (found AC-${ac.n} at position ${i + 1})`);
+    const c = COVERS.exec(ac.text);
+    const text = c ? ac.text.slice(0, c.index).trim() : ac.text;
+    if (c) {
+      const ids = c[1].split(/\s*,\s*/).filter(Boolean);
+      const bad = ids.filter((x) => !REQ_ID.test(x));
+      if (!ids.length || bad.length) errors.push(`AC-${ac.n} Covers must list requirement ids such as \`Covers: FR-1, NFR-2\`${bad.length ? ` (not an id: ${bad.join(", ")})` : ""}`);
+      else covers[`AC-${ac.n}`] = ids;
+    }
+    if (!text) errors.push(`AC-${ac.n} is empty`);
+    else {
+      if (!OBSERVABLE.test(text)) errors.push(`AC-${ac.n} names no observable behaviour (no verb such as returns, shows, rejects, persists)`);
+      const v = VAGUE.exec(text);
+      if (v) errors.push(`AC-${ac.n} is not testable: vague term "${v[0]}"`);
+      else if (!meta.prd) { const w = ambiguousRegex(opts.vagueWords).exec(text); if (w) errors.push(`AC-${ac.n} cannot be measured: ambiguous word "${w[0]}" (a number, a path or an observable result instead; A202)`); }
+      if (IMPL.test(text)) warnings.push(`AC-${ac.n} may dictate implementation; keep only if the user stated it as a constraint`);
+    }
+  });
+  if (Object.keys(covers).length && !meta.prd) warnings.push("criteria name Covers ids but the task names no PRD: add front matter `prd: <slug>`");
+  if (t.secs.has("Suggested class")) {
+    if (!t.cls) errors.push("Suggested class must start with one of " + CLASSES.join("|"));
+    else if (!t.indicator) errors.push("Suggested class must name the indicator that placed it: `<CLASS> — <indicator>`");
+  }
+  if (PLACEHOLDER.test(stripComments(text).replace(/^# Task:.*$/m, ""))) errors.push("unfilled placeholder (<...>, TBD, TODO or ???) remains");
+  errors.push(...defectErrors(text));
+  errors.push(...testExceptionErrors(full, opts.bytes));
+  if (defectEntries(text).some((e) => /decision:\s*fix\b/i.test(e))) warnings.push("a pre-existing defect with `decision: fix` needs the user's own `scope` approval at freeze; an answer such as \"use your recommended option\" is not one");
+  const nameWarn = fileNameWarning(t.id, t.title, opts.fileName);
+  if (nameWarn) warnings.push(nameWarn);
+  return { valid: errors.length === 0, errors, warnings, task: { id: t.id, title: t.title, acs: t.acs.length, class: t.cls, type: TYPES.includes(type) ? type : "feature", ...(Object.keys(meta).length ? { meta } : {}), ...(Object.keys(covers).length ? { covers } : {}) } };
+}
+
+// ---- A202 optional task fields: priority, origin, Allowed/Forbidden scope, Existing pattern references, Completion response ----
+export const PRIORITIES = ["high", "medium", "low"];
+export const SCOPE_SECTIONS = ["Allowed scope", "Forbidden scope", "Existing pattern references"];
+// Words an acceptance criterion cannot be measured by. Kept in step with product-spec's check-prd.mjs VAGUE_WORDS (a test compares them);
+// a skill is installable alone, so the list is copied, not imported. Extended by config product.vague_words.
+export const AMBIGUOUS_WORDS = [
+  "robust", "seamless", "seamlessly", "etc.", "etc", "and so on", "user-friendly", "user friendly", "fast", "faster", "quick", "quickly",
+  "intuitive", "easy", "easily", "simple", "simply", "scalable", "flexible", "efficient", "efficiently", "modern", "powerful", "smooth",
+  "smoothly", "properly", "appropriate", "appropriately", "as needed", "optimal", "reasonable",
+  "kullanıcı dostu", "hızlı", "hızlıca", "çabuk", "sağlam", "kolay", "kolayca", "sezgisel", "basit", "esnek", "ölçeklenebilir",
+  "verimli", "sorunsuz", "kusursuz", "güçlü", "uygun", "makul", "vb.", "vs.", "gibi şeyler",
+];
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export const ambiguousRegex = (extra = []) => new RegExp(`(?<![\\p{L}\\p{N}])(${[...new Set([...AMBIGUOUS_WORDS, ...extra])].sort((a, b) => b.length - a.length).map(escRe).join("|")})(?![\\p{L}\\p{N}])`, "iu");
+// scopeParse: every entry of a scope section (the shell freeze reads it the same way). A bullet with backticks gives each backticked token (commas split),
+// without backticks every word; each word must look like a path or glob. What cannot be read is returned in `bad` (never dropped silently).
+const TOKEN_BAD = /[\s()<>|;{}"'$&\\]/, PATH_LIKE = /[\]\[/*?]|\.[A-Za-z0-9]/;
+export function scopeParse(lines) {
+  const entries = [], bad = [], prose = [];
+  const emit = (t0, ticked) => {
+    const t = t0.trim().replace(/[,;:]+$/, "");
+    if (!t) return;
+    if (TOKEN_BAD.test(t) || /^[./]+$/.test(t) || (!ticked && !PATH_LIKE.test(t))) { bad.push(t); return; }
+    entries.push(t.replace(/^\.\//, "").replace(/^\//, ""));
+  };
+  for (const raw of lines || []) {
+    const line = raw.replace(/\r/g, "");
+    if (!line.trim()) continue;
+    const m = /^\s*(?:[-*]|\d+[.)])\s+(.*?)\s*$/.exec(line);
+    const text = m ? m[1] : line.trim();
+    if (text.toLowerCase() === "none") continue;
+    if (!m) { prose.push(text.slice(0, 60)); continue; }
+    if (text.includes("`")) { for (const b of text.matchAll(/`([^`]*)`/g)) for (const part of b[1].split(",")) emit(part, true); }
+    else for (const w of text.split(/[\s,]+/)) emit(w, false);
+  }
+  return { entries, bad, prose };
+}
+export const scopeEntries = (lines) => scopeParse(lines).entries;
+// a heading with trailing text ("Forbidden scope (do not touch)") and any letter case is the section too
+export function scopeBody(secs, name) {
+  const want = name.toLowerCase(), out = [];
+  for (const [h, body] of secs) { const lh = h.trim().toLowerCase(); if (lh === want || (lh.startsWith(want) && !/[a-z0-9]/.test(lh[want.length] || ""))) out.push(...body); }
+  return out;
+}
+export function validateOptionalFields(meta, t, errors, warnings, opts = {}) {
+  if ("priority" in meta && !PRIORITIES.includes(meta.priority)) errors.push(`front matter priority must be one of ${PRIORITIES.join("|")}`);
+  if ("origin" in meta) {
+    if (!/^(prd:[a-z0-9][a-z0-9-]*|[A-Za-z0-9][A-Za-z0-9._-]*)$/.test(meta.origin)) errors.push("front matter origin must be the source task's id or `prd:<slug>`");
+    else if (!meta.origin.startsWith("prd:") && opts.tasksDirs?.length) {
+      if (!knownIds(opts.tasksDirs).has2(meta.origin)) errors.push(`origin "${meta.origin}" matches no task in ${opts.tasksDirs.join(", ")}`);
+      else if (!opts.tasksDirs.some((d) => { try { return readFileSync(join(d, "links.tsv"), "utf8").split("\n").some((r) => r.split("\t")[0] === meta.origin && r.split("\t")[1] === t.id); } catch { return false; } }))
+        warnings.push(`origin ${meta.origin} has no back link to ${t.id} in links.tsv (link-origin.mjs writes both directions)`);
+    }
+  }
+  for (const name of SCOPE_SECTIONS) {
+    const body = scopeBody(t.secs, name);
+    if (!body.some((l) => l.trim())) continue;
+    const { entries, bad, prose } = scopeParse(body);
+    if (bad.length || (entries.length && prose.length)) errors.push(`section "## ${name}" has an entry that is not a path or glob: "${bad[0] ?? prose[0]}". Write one path, folder or glob per bullet, each in backticks, e.g. - \`src/billing/\` or - \`**/*.sql\` (several per bullet are fine)`);
+    else if (entries.length === 0) errors.push(`section "## ${name}" lists no path (one bullet per file, folder or glob, or remove the section)`);
+  }
+  if (t.secs.get("Completion response") && !t.secs.get("Completion response").some((l) => l.trim())) errors.push('section "## Completion response" is empty (describe the final summary you want, or remove the section)');
+}
+
+// ---- templates (D25) ----
+const FIELDS = ["title", "goal", "context", "acceptance_criteria", "out_of_scope", "constraints", "risks", "suggested_class", "verification_commands", "test_exceptions", "labels", "components"];
+const ALWAYS_REQUIRED = ["goal", "acceptance_criteria", "out_of_scope", "constraints", "risks"];
+// Optional section (A294): a template may carry it, an export or an import without it is complete (unless the template lists it under required:).
+const OPTIONAL_FIELDS = ["test_exceptions"];
+// The template's own one-line `<!-- Optional ... -->` comment is not a line of the section.
+const dropComments = (body) => body.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l)).filter((l) => !/^[ \t]*<!--.*-->[ \t]*$/.test(l)).join("\n").trim();
+
+export function parseTemplate(text) {
+  const fm = /^---\n([\s\S]*?)\n---\n?/.exec(text);
+  const required = [];
+  let body = text;
+  if (fm) {
+    body = text.slice(fm[0].length);
+    for (const l of fm[1].split("\n")) {
+      const m = /^required:\s*(.*)$/.exec(l);
+      if (m) required.push(...m[1].split(/[\s,]+/).filter(Boolean));
+    }
+  }
+  const out = [];
+  let cur = null;
+  for (const line of body.split(/\r?\n/)) {
+    const h = /^##\s+(.+?)\s*$/.exec(line);
+    if (h) { cur = { heading: h[1], field: null }; out.push(cur); continue; }
+    const p = /\{\{(\w+)\}\}/.exec(line);
+    if (p && cur && !cur.field) cur.field = p[1];
+  }
+  const unknown = out.filter((s) => s.field && !FIELDS.includes(s.field) && !s.field.startsWith("x_")).map((s) => s.field);
+  return { sections: out.filter((s) => s.field), required, unknown };
+}
+
+const norm = (s) => s.toLowerCase().replace(/^h[1-6]\.\s*/, "").replace(/[#*_:`]/g, "").replace(/\s+/g, " ").trim();
+
+// Splits external text into heading -> body, tolerating `#`, `h2.` and `*bold*` headings.
+function splitExternal(text) {
+  const map = new Map();
+  let cur = null;
+  for (const line of text.split(/\r?\n/)) {
+    const h = /^(?:#{1,6}\s+(.+)|h[1-6]\.\s*(.+)|\*\*?([^*]+)\*\*?:?)$/.exec(line.trim());
+    if (h) { cur = norm(h[1] || h[2] || h[3]); if (!map.has(cur)) map.set(cur, []); continue; }
+    if (cur) map.get(cur).push(line);
+  }
+  return map;
+}
+
+export function importIssue(text, template) {
+  const ext = splitExternal(text);
+  const fields = {}, custom = {}, missing = [];
+  for (const s of template.sections) {
+    let body = (ext.get(norm(s.heading)) || []).join("\n").trim();
+    if (s.field === "test_exceptions") body = dropComments(body);
+    const isCustom = s.field.startsWith("x_");
+    const req = template.required.includes(s.field) || ALWAYS_REQUIRED.includes(s.field);
+    if (body) (isCustom ? custom : fields)[s.field] = body;
+    else if (req) missing.push(s.field);
+  }
+  return { fields, custom, missing };
+}
+
+export function checkExport(text, template) {
+  const ext = splitExternal(text);
+  return template.sections.filter((s) => !(OPTIONAL_FIELDS.includes(s.field) && !template.required.includes(s.field)) && !(ext.get(norm(s.heading)) || []).join("").trim()).map((s) => `section "${s.heading}" is missing or empty`);
+}
+
+export function resolveTemplate(target, root) {
+  const user = join(root, ".agents", "templates", "tasks", `${target}.md`);
+  if (existsSync(user)) return user;
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "assets", "templates", `${target}.md`);
+}
+
+// product.vague_words from the nearest .agents/config.yaml above the task (the same key product-spec reads).
+function configVagueWords(from) {
+  for (let d = dirname(from), i = 0; i < 8; d = dirname(d), i++) {
+    const c = join(d, ".agents", "config.yaml");
+    if (!existsSync(c)) continue;
+    let inBlock = false;
+    for (const l of readFileSync(c, "utf8").split(/\r?\n/)) {
+      if (/^\S/.test(l)) { inBlock = /^product:\s*(#.*)?$/.test(l); continue; }
+      const m = inBlock && /^  vague_words:\s*(.*?)\s*$/.exec(l);
+      if (m) return m[1].replace(/\s+#.*$/, "").replace(/^"(.*)"$/, "$1").split(",").map((w) => w.trim()).filter(Boolean);
+    }
+    return [];
+  }
+  return [];
+}
+
+function main(argv) {
+  const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
+  const read = (p) => { try { return readFileSync(p, "utf8"); } catch (e) { console.error(`cannot read ${p}: ${e.message}`); process.exit(2); } };
+  if (argv.includes("--resolve-template")) {
+    const p = resolveTemplate(opt("--resolve-template"), resolve(opt("--root") || "."));
+    if (!existsSync(p)) { console.error("no template for target"); return 2; }
+    console.log(p); return 0;
+  }
+  if (argv.includes("--import") || argv.includes("--check-export")) {
+    if (!opt("--template")) { console.error("--template required"); return 2; }
+    const tpl = parseTemplate(read(opt("--template")));
+    if (argv.includes("--import")) {
+      const r = importIssue(read(opt("--import")), tpl);
+      console.log(JSON.stringify(r, null, 2));
+      return r.missing.length ? 1 : 0;
+    }
+    const errs = checkExport(read(opt("--check-export")), tpl);
+    errs.forEach((e) => console.error(e));
+    return errs.length ? 1 : 0;
+  }
+  const file = argv.find((a, i) => !a.startsWith("--") && argv[i - 1] !== "--tasks-dir");
+  if (!file) { console.error("usage: validate-task.mjs TASK.md [--json]"); return 2; }
+  const td = opt("--tasks-dir");
+  const own = dirname(resolve(file));
+  const tasksDirs = td ? [resolve(td)] : [own, dirname(own)];
+  const r = validate(read(file), { bytes: (() => { try { return readFileSync(file, "latin1"); } catch { return undefined; } })(), tasksDirs, vagueWords: configVagueWords(resolve(file)), fileName: basename(file) });
+  if (argv.includes("--json")) console.log(JSON.stringify(r, null, 2));
+  else { r.errors.forEach((e) => console.error(`error: ${e}`)); r.warnings.forEach((w) => console.error(`warning: ${w}`)); }
+  return r.valid ? 0 : 1;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exit(main(process.argv.slice(2)));
