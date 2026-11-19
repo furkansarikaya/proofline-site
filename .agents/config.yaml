@@ -83,7 +83,17 @@ tasks:
   # How long one status-block update may take (1 to 300, times timeouts.scale); a slower tracker costs a note, never the run.
   status_block_seconds: 20
 design_docs:
-  design: docs/design/DESIGN.md
+  design:
+    shared: docs/design/DESIGN.md
+    surfaces:
+      marketing:
+        doc: docs/design/DESIGN-marketing.md
+        mode: persuade
+        paths: src/pages/index.astro src/pages/get-started.astro src/pages/trust.astro src/pages/claude-code-and-codex.astro src/pages/404.astro src/pages/tr/index.astro src/pages/tr/baslarken.astro src/pages/tr/guven.astro src/pages/tr/claude-code-ve-codex.astro src/content/pages/** src/layouts/marketing/** src/components/marketing/**
+      docs:
+        doc: docs/design/DESIGN-docs.md
+        mode: read
+        paths: src/pages/docs/** src/pages/tr/docs/** src/layouts/docs/** src/components/docs/**
   # One document per UI surface instead of one path: write design as a mapping (agent.sh design-surface <PATH> names the
   # documents that apply to a file; two surfaces matching one file is an error, no match means the shared document only).
   # design:
