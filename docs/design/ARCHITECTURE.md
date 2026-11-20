@@ -36,7 +36,7 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | C12 | Tests and fixtures | container | `tests` | new | node tests, sanitizer fixtures, mini archive, two snapshots, Playwright specs, LHCI config |
 | C13 | Git ignore rules | container | `.gitignore` | modify | add `node_modules/`, `dist/`, `.cache/` |
 | C14 | Product documents (inputs) | container | `docs/product/site` | unchanged | PRD/DECISION/REVIEW; wording changes proposed to the owner, not edited |
-| C15 | Sync fetch and verify (`scripts/sync.mjs`) | component | `scripts` | new | archive download, per-file verification, cache `.cache/sync/<commit>/` |
+| C15 | Sync fetch and verify (`scripts/sync.mjs`) | component | `scripts` | built (TASK-007) | commands `fetch` and `lock [<commit> [<tag>]]`; archive download, per-file verification against the committed lock only, atomic cache `.cache/sync/<commit>/` plus `listing.tsv`; library modules `scripts/lib/tar.mjs` (tar reader with header checksum), `scripts/lib/sync-set.mjs` (the six globs), `scripts/lib/lock.mjs` (blob id, sha256, listing, tree hash, pin and lock validation); `npm run build` runs the fetch first |
 | C16 | Transform, sanitize, link map (`scripts/lib/transform.mjs`) | component | `scripts` | new | frontmatter, remark-parse + remark-gfm, HTML as text, comments dropped, links mapped, HTML + `.md` + manifest |
 | C17 | Pin facts extractor (`scripts/lib/pin-facts.mjs`) | component | `scripts` | new | proof.md figures and anchor; README Status sentences and Install-range commands; fails when missing |
 | C18 | Translation index (`src/lib/translations`) | component | `src` | new | pairs, hreflang, sitemap alternates, switcher, staleness |
@@ -57,9 +57,9 @@ Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19)
 
 | From | To | Contract | Direction |
 |---|---|---|---|
-| C15 | C7 | `sync/pin.json` `{commit: 40-hex, tag: null\|string}`; `sync/lock.json` `{commit, files: [{path, role: page\|input, blob, sha256}], tree_sha256}` | C7 -> C15 |
+| C15 | C7 | `sync/pin.json` `{commit: 40 lower-case hex, tag: null or "v<major>.<minor>.<patch>"}`; `sync/lock.json` `{commit, files: [{path, role: page\|input, blob, sha256}], tree_sha256}` | C7 -> C15 |
 | C15 | proofline (external) | HTTPS GET codeload archive of `<commit>`, no credential; contents verified per file | C15 -> external |
-| C15 | C16 | `.cache/sync/<commit>/` tree + listing `(path, type, blob)` | C15 -> C16 |
+| C15 | C16 | `.cache/sync/<commit>/` tree of the locked files + `listing.tsv` (one `path<TAB>type<TAB>blob` line per archive file and directory, sorted, LF-terminated, directories with an empty blob; its sha256 is the lock's `tree_sha256`); address the folder by the pinned commit and never list `.cache/sync/`, which may hold leftover `<commit>.tmp-*` or `<commit>.bad-*` folders of a killed fetch | C15 -> C16 |
 | C16 | C19 | page manifest `[{source, address, lang, title, description, html, md_path, translated_from?, headings[]}]` | C16 -> C19 |
 | C17 | C19 | pin facts `{version, figures_date, does_not_prove_id, not_proven_sentence, codex_sentence, readme_commands[], readme_inline_spans[], commit, tag}` | C17 -> C19 |
 | C18 | C19 | `alternates(page)`, `switcherTarget(page)`, `isStale(page)` | C18 -> C19 |

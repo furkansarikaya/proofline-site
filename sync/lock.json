@@ -1,0 +1,312 @@
+{
+  "commit": "b6d7f0ffc0e4177bbcbf8b135f1bc607b94823dd",
+  "files": [
+    {
+      "path": "README.md",
+      "role": "input",
+      "blob": "5352cae2d2458df885eb87f49d11beef13ca667e",
+      "sha256": "8f3e3011d3c75a112288e31c9698e11289d640610229798a86c60c4d91d5c9ce"
+    },
+    {
+      "path": "docs/concepts/design-surfaces.md",
+      "role": "page",
+      "blob": "1a247df5b3b858a38feb5d1a91715e32b465f4f8",
+      "sha256": "2383d2113682b1d4fbee9fcee8efc4bf2185c3945ca3215368355569d9430a01"
+    },
+    {
+      "path": "docs/concepts/ecosystems.md",
+      "role": "page",
+      "blob": "170e6b07e66d670a1c7a279fdb8c1a600ae49195",
+      "sha256": "42392933497f54d34917d03717520bd61ee18856aeba056b35a720d7062fd9d4"
+    },
+    {
+      "path": "docs/concepts/enforcement-layers.md",
+      "role": "page",
+      "blob": "bd78b7c5582931fa25058f4947e95854ff7c4138",
+      "sha256": "0c21c5482b2c2a1fd4a714eb021c9f4c90dc1851de0ff6c831ebda223d605267"
+    },
+    {
+      "path": "docs/concepts/evidence.md",
+      "role": "page",
+      "blob": "452aad37225a2a959dd3b542816076d052b308e1",
+      "sha256": "a2725fdab35c97510ae08e7a931e9e02bcf5c7d7f8bfb02387f29b0b3585df92"
+    },
+    {
+      "path": "docs/concepts/failover.md",
+      "role": "page",
+      "blob": "2006ed341724050942dc076e699241ac9ebba691",
+      "sha256": "1b0ee08b6940f1d583c19072b978d96980b86a7ad0e65f9ccab7ec4d46fb693e"
+    },
+    {
+      "path": "docs/concepts/gates.md",
+      "role": "page",
+      "blob": "26d394467d5981c5499a5fa5f0ecc17c846239ba",
+      "sha256": "db1c7c19a8c25ea8aaf23597abab721185824558fad5f32f28866e0ce0e44406"
+    },
+    {
+      "path": "docs/concepts/metrics.md",
+      "role": "page",
+      "blob": "9a3a400da2937c032d28df48ce3c6f6533440ba2",
+      "sha256": "2b8f109aadc29412d27f38e1f6efd1104c4b1ba61fa49aa22fa90e9eca0e89ad"
+    },
+    {
+      "path": "docs/concepts/night-mode.md",
+      "role": "page",
+      "blob": "7fa3ec35efcfa4a50d43eff5132322f9a766d424",
+      "sha256": "4b83226fbb1cf16917e9457f1639b457a1c5747be220f184ac89be94accf12fc"
+    },
+    {
+      "path": "docs/concepts/product.md",
+      "role": "page",
+      "blob": "ab1978624a11a5c7f67fed8b6e82935d8e53897a",
+      "sha256": "1f31499ad5382325e8a04e8d5016e976f7cc8ea331273d1f1394102361f4c07e"
+    },
+    {
+      "path": "docs/concepts/roles.md",
+      "role": "page",
+      "blob": "d4edf1b2bb3adf33b1bc4d0a115eba57abec48be",
+      "sha256": "0c8d04b03ab27262e5dc4a7cc52a2f5bffb0c10d55be76c40a761c1495feb506"
+    },
+    {
+      "path": "docs/concepts/testing.md",
+      "role": "page",
+      "blob": "7205ebadc2be03e94de3ad4b162511fe4327ef54",
+      "sha256": "e321734b35d2e5cd764feca00c5dca6ebde04610ed278c5094ccacab499e6a96"
+    },
+    {
+      "path": "docs/concepts/timeouts.md",
+      "role": "page",
+      "blob": "40d8ec51a725d7457d5e7dafd4e6f097022b1b0e",
+      "sha256": "cb0c9165652c1115f89145b33190d3d50ba1461ed7816eb91ead600085f27ec0"
+    },
+    {
+      "path": "docs/concepts/workflow.md",
+      "role": "page",
+      "blob": "2ef250d4f2c266f0f0ae4d380e237d529c61794a",
+      "sha256": "c994bafa63c6c0ba3e2ed9b60e28355f6537be73e66bcc0523ea80a2f00d9aad"
+    },
+    {
+      "path": "docs/guides/daily-use.md",
+      "role": "page",
+      "blob": "63606a83788971a1ada89515bb008c32cc701e2b",
+      "sha256": "cd806b8c93b1d0cb971353ba069aaf0f5ca7e4c3ef63aea6080610445ec1d41b"
+    },
+    {
+      "path": "docs/guides/existing-project.md",
+      "role": "page",
+      "blob": "7faae8db89af21362e6955f77c63e55abb56319e",
+      "sha256": "e520e9507e8b6a1c5a707dd0fecebdfe7ea46439086e2e7e62c7d292c0ec8288"
+    },
+    {
+      "path": "docs/guides/prompt-catalogue.md",
+      "role": "page",
+      "blob": "34bd46d388f88a91c364781bf11ffbf642772455",
+      "sha256": "1e5e3e191f193cb19e0aa56577c624975f9fa2e5840de9938f05b1b58788236c"
+    },
+    {
+      "path": "docs/guides/task-templates.md",
+      "role": "page",
+      "blob": "6561a601059689a6bec0dfc42314077e5ac7979c",
+      "sha256": "168953914f91ff4f0a7fa1fed1bf1406f910de8b5e1c50de814eb162b7eba618"
+    },
+    {
+      "path": "docs/guides/tr/gunluk-kullanim.md",
+      "role": "page",
+      "blob": "1fc734072b48ed5e0f16d64c22d707da5df8a32e",
+      "sha256": "ee8663c1739886979e989b5beeae8d30737ab1577b734209aa3211107c721456"
+    },
+    {
+      "path": "docs/guides/tr/prompt-katalogu.md",
+      "role": "page",
+      "blob": "a2dcf60a9104f611bdba627cbcee93d086b61484",
+      "sha256": "4760747350c36e7c417eeb771c041402a1bb6f44ce21d75b911521d2d225e8e2"
+    },
+    {
+      "path": "docs/guides/writing-an-adapter.md",
+      "role": "page",
+      "blob": "68124b6ea2bc5509498ff534a1bd2a14fe7b8f8d",
+      "sha256": "97f2a531b79125125111680aa1143f2cf177d9bd4296660fa3bec43150ee988e"
+    },
+    {
+      "path": "docs/limits.md",
+      "role": "page",
+      "blob": "dfe3ee4d4d33a9c7e28ffe2f3484dd2a6808c5d8",
+      "sha256": "9b24816f315f7e9fdc227868cb6bcf5db69381e42c479ab55eea44b99a4c2e3d"
+    },
+    {
+      "path": "docs/proof.md",
+      "role": "page",
+      "blob": "351e1883788c72d1d22c51d58855f93012d605bb",
+      "sha256": "8caa5db41e64971b172c21bda04f5941f9f20f933590238fa80ba2f52470e979"
+    },
+    {
+      "path": "skills/api-design/SKILL.md",
+      "role": "page",
+      "blob": "1f0113bf6303fbd004147eb4f2c41e3f5ae27d62",
+      "sha256": "ae5021bb40a1e7c45f46e22e841e5e0efbd04fdb7d312bb90d108f3ecb508a42"
+    },
+    {
+      "path": "skills/concurrency-proof/SKILL.md",
+      "role": "page",
+      "blob": "2eb7cabd902eefac6815c3339b3ab04c58e9be20",
+      "sha256": "077b074a09c09afbf32cfc68ebba0d82fe741e73ae0b88b3101a43b7105cba4a"
+    },
+    {
+      "path": "skills/contract-proof/SKILL.md",
+      "role": "page",
+      "blob": "3ddbe87b5c2bad6ae13ed8523d619e4c0895b570",
+      "sha256": "2a2aff9e89f3b8e28d8052a72b019b3dc7f2ae555ca126e37e98364965339a6d"
+    },
+    {
+      "path": "skills/data-design/SKILL.md",
+      "role": "page",
+      "blob": "90912786d940d7cdcfd5b7d7f6fd63b7cbbf6782",
+      "sha256": "448fd40095143b9474ca96de6ec98e305e7ab8552c30580e9d8ab6ea48fffacb"
+    },
+    {
+      "path": "skills/debug-proof/SKILL.md",
+      "role": "page",
+      "blob": "8edbbcc9e06c20a4315f36e1f80789d89f2bf13b",
+      "sha256": "0410373e51895554af29ca3e25870c9a6128977ff0b82d7349a3c44a9831fb06"
+    },
+    {
+      "path": "skills/design-sync/SKILL.md",
+      "role": "page",
+      "blob": "bbbad0ee08cbb1dbcf507417f3cb3630a2b61167",
+      "sha256": "2f232c81071a45fddfd35f4d160dd78004386b5601a56e3e7693b8edf67707d9"
+    },
+    {
+      "path": "skills/docs-writer/SKILL.md",
+      "role": "page",
+      "blob": "b4020d780a8579a38e8ba1d21374fcb66ba1e274",
+      "sha256": "7e16787c60a7e4e1ee450aca76185f219349ba0a47600dfd0f41217034a82cd6"
+    },
+    {
+      "path": "skills/evidence-map/SKILL.md",
+      "role": "page",
+      "blob": "2850e568aad97786e23d6d2f3d0fe9d2741c0a2c",
+      "sha256": "9c8d05a44b3c0515cc014cccaaf86fd7d9b1bf9fb1d1e1e834cc8002c4cb999d"
+    },
+    {
+      "path": "skills/explain-html/SKILL.md",
+      "role": "page",
+      "blob": "5d34de344a3912ec3ee10076c15e5fdbf8692372",
+      "sha256": "7d3882a8414c19bd3ccb0cd26a4878ac7cf04604afd7ea5a34875f88456e0f63"
+    },
+    {
+      "path": "skills/exploit-proof/SKILL.md",
+      "role": "page",
+      "blob": "ad655a7a9aa6a9736f03670696a9e33033cddeb3",
+      "sha256": "c6f019dac5eff4bdf654b4bc0fc249be5e0292471f6f12b56676ddd622989628"
+    },
+    {
+      "path": "skills/intent-grill/SKILL.md",
+      "role": "page",
+      "blob": "7b79543d3e0ea54e4097022780c74b53a8d8015a",
+      "sha256": "9e7626445f439f19ba1ad1d1fdf88cfe59fa62558a0c735b5c1fd23f55c87227"
+    },
+    {
+      "path": "skills/llm-wiki/SKILL.md",
+      "role": "page",
+      "blob": "0b7b6bc7763a0a8843e805e10b06f01e24a3d619",
+      "sha256": "a1db604daef63685e601696c510d79c670afde59d2f38e2e8e01b06a7cb4c38f"
+    },
+    {
+      "path": "skills/performance-proof/SKILL.md",
+      "role": "page",
+      "blob": "cce0ddee57f6e3a0d1838a79d6410e2ab8a6ba49",
+      "sha256": "6d54d88970def176dd7c243dbcbcdc0bc8bdd423ffe7ace25e7f9168a34e0d7f"
+    },
+    {
+      "path": "skills/plan-contract/SKILL.md",
+      "role": "page",
+      "blob": "ed98d22bb6fe15211a5542ee34f7bec601cd457b",
+      "sha256": "1fd80ff7d5def1fa4150789a96f204659c5471a48854678cf46c6cde659945c2"
+    },
+    {
+      "path": "skills/product-assess/SKILL.md",
+      "role": "page",
+      "blob": "358c5a523bde00a7af303716e09c2471e8086249",
+      "sha256": "a2fd25dd4a274f8333643418f28027804806a302ec24a8ecb9873a54f206efdb"
+    },
+    {
+      "path": "skills/product-discovery/SKILL.md",
+      "role": "page",
+      "blob": "4700118d0f608e03e28f56fb438400458be368ce",
+      "sha256": "85935fd4bd2d449776a135f0963710f40bda2998b82db8d276f9a20fb6b1e753"
+    },
+    {
+      "path": "skills/product-spec/SKILL.md",
+      "role": "page",
+      "blob": "8d12c8b4e20c779279ad4c46c25aad402dd36776",
+      "sha256": "c7d678bbcba46e10ac1f38a2f1b219c143bbf28667433f893788757d970a168a"
+    },
+    {
+      "path": "skills/proof-review/SKILL.md",
+      "role": "page",
+      "blob": "5f924436b2af4be49be246d91e5480e2cd250275",
+      "sha256": "79b7ad519da18dde372cee7e09febfce277fa234eeccf1c171813f98002125c2"
+    },
+    {
+      "path": "skills/proofline-lead/SKILL.md",
+      "role": "page",
+      "blob": "3ce7c6b4c01eb4e77d9c12a536bd85734dd1ef99",
+      "sha256": "b97e28850c4331c848d2658e93398a24ab9648e2bf6e8ff48789353a8e292a29"
+    },
+    {
+      "path": "skills/proofline/SKILL.md",
+      "role": "page",
+      "blob": "ea8ce0bcc387ecae7854fabb93ace0453cd6aa1e",
+      "sha256": "494d1d6a764bac88d7f19c141e70069205154a5f2bcdd47fad45697271b102d1"
+    },
+    {
+      "path": "skills/qa-plan/SKILL.md",
+      "role": "page",
+      "blob": "3d9df909f0da756e6fbf4537925e591e6f30560c",
+      "sha256": "d1c8f3aa3815a21526e9d24916dc86fe1297631c83cebeafd0ae51a0e222130b"
+    },
+    {
+      "path": "skills/system-design/SKILL.md",
+      "role": "page",
+      "blob": "4a8398e2deb91152ab339a882be74e9769895003",
+      "sha256": "c5eaab82acc42c3682b213f21248ca93961a196f4dc4f3cddabdb3aebde04edb"
+    },
+    {
+      "path": "skills/task-author/SKILL.md",
+      "role": "page",
+      "blob": "37c7f28e287f5e678df0b2c2fb4f1c852027433d",
+      "sha256": "db18b0655edb4d27ba76f80c7e076d11cc51b09fdd3cb4ecdf516d0804f11b49"
+    },
+    {
+      "path": "skills/tdd-proof/SKILL.md",
+      "role": "page",
+      "blob": "b62c08dcfc3a2ce498f5a5ea6fbd27c51feaf6ef",
+      "sha256": "07e5218927a6d26c6b6c7684d1b9c294161d8ebefd30be50ac97981d3d720e32"
+    },
+    {
+      "path": "skills/test-trust/SKILL.md",
+      "role": "page",
+      "blob": "2fc5fcea80036b1536a31a906634b0b79611e187",
+      "sha256": "24d1abd080323fb3dd1ee829ee7c7b21d6bf562f944ab2da57c1441fe8a60363"
+    },
+    {
+      "path": "skills/ui-design/SKILL.md",
+      "role": "page",
+      "blob": "d8cce72c0be311751c2fef35248340fd25c49ef4",
+      "sha256": "fecb2b1e6f5425e9a622b3ab29799f6035434df60a52406cfd72a545e713522f"
+    },
+    {
+      "path": "skills/verify-proof/SKILL.md",
+      "role": "page",
+      "blob": "d6a27e4f4ce3df427084789fdb055da647ae6c4d",
+      "sha256": "9f00fabf7c698f289cafcc22d18399aea91559942e344ddd0620d3e2e6191b8c"
+    },
+    {
+      "path": "skills/visual-proof/SKILL.md",
+      "role": "page",
+      "blob": "c8ebaf781eab3a4e55830b5e405f5f85b2a54f4c",
+      "sha256": "cc7bcfd733a6bb881aaced77aa5db6ea50972a18803b4f1197052e7a04a7d368"
+    }
+  ],
+  "tree_sha256": "ffa5d38d7690cb7bdd40ab1c05c7fab1d2815f643b06e9c90aef1cfdca1b210a"
+}
