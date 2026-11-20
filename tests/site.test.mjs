@@ -2,23 +2,24 @@
 // The "built site" group builds once, then asserts the real output; the other tests use fixtures generated in temp directories.
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
-import { tmpdir } from 'node:os';
+import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { load } from 'cheerio';
 import YAML from 'yaml';
 import { startServer } from '../scripts/serve-dist.mjs';
+import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const PAGES = ['index.html', 'tr/index.html', '404.html'];
 const SKIP_LINE = 'performance checks skipped: the Lighthouse budgets arrive with the performance task';
 
-const scratch = [];
-after(() => { for (const d of scratch) rmSync(d, { recursive: true, force: true }); });
+sweepStale();
+after(removeTempDirs);
 
 /** Text of a file under the repository root, or '' when it is absent (so a missing file fails an assertion). */
 function read(rel) {
@@ -57,8 +58,7 @@ function walk(dir, prefix = '') {
 
 /** A temp directory holding the given files ({ 'a/b.html': 'text' }); removed after the run. */
 function makeTree(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'proofline-site-'));
-  scratch.push(dir);
+  const dir = makeTempDir('proofline-site-');
   for (const [rel, text] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, rel)), { recursive: true });
     writeFileSync(join(dir, rel), text);
@@ -70,6 +70,125 @@ function makeTree(files) {
 function node(args) {
   const r = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8' });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+const minimalWorkflow = (uses) => `name: fixture\non: push\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-24.04\n    steps:\n      - ${uses}\n`;
+
+// A passing driver run takes about 0.1 s; this deadline only bounds a hang and is never waited out by a passing run.
+const DRIVER_DEADLINE_MS = 15000;
+
+/** `promise`, or a rejection as soon as `deadline` aborts; the wait itself is the promise's event, never a poll. */
+function beforeDeadline(promise, deadline) {
+  if (deadline.aborted) return Promise.reject(deadline.reason);
+  return new Promise((resolve, reject) => {
+    const stop = () => reject(deadline.reason);
+    deadline.addEventListener('abort', stop, { once: true });
+    promise.then(resolve, reject).finally(() => deadline.removeEventListener('abort', stop));
+  });
+}
+
+/** A TCP server on a free local port for one driver. The driver writes its pid on the socket, because a `node --test` runner can hold a short stdout line back; the OS closes the socket when the driver process ends, so that end is an event. */
+async function listenForDriver() {
+  let reportPid;
+  let reportEnd;
+  const pid = new Promise((resolve) => { reportPid = resolve; });
+  const ended = new Promise((resolve) => { reportEnd = resolve; });
+  let open = false;
+  const server = createServer((socket) => {
+    open = true;
+    let text = '';
+    socket.on('error', () => {});
+    socket.on('data', (chunk) => {
+      text += chunk.toString();
+      const match = /^(\d+)\n/.exec(text);
+      if (match) reportPid(Number(match[1]));
+    });
+    socket.once('close', () => { open = false; reportEnd(); });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return { port: server.address().port, pid, ended, isOpen: () => open, close: () => server.close() };
+}
+
+/** A `node --test` child with its own temp root; every wait is an event bounded by `deadline`, and the runner and driver this call started are always ended by their pids. */
+async function runDriver(prefix, signal, target = 'runner', failure = '', { deadline = AbortSignal.timeout(DRIVER_DEADLINE_MS), onPid } = {}) {
+  const privateDir = makeTempDir('proofline-site-');
+  const helper = pathToFileURL(join(root, 'tests/temp-dirs.mjs')).href;
+  const driver = join(privateDir, 'driver.mjs');
+  const listener = await listenForDriver();
+  writeFileSync(driver, `import { test, after } from 'node:test';\nimport { connect } from 'node:net';\nimport { makeTempDir, removeTempDirs } from '${helper}';\nafter(removeTempDirs);\ntest('driver', async () => { makeTempDir('${prefix}'); await new Promise((resolve) => { const socket = connect(${listener.port}, '127.0.0.1'); socket.unref(); socket.write(process.pid + '\\n', resolve); }); ${failure || 'await new Promise(() => {});'} });\n`);
+  const { NODE_TEST_CONTEXT, ...env } = process.env;
+  const child = spawn(process.execPath, ['--test', driver], { env: { ...env, TMPDIR: privateDir }, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  for (const stream of [child.stdout, child.stderr]) stream.on('data', (chunk) => { output += chunk.toString(); });
+  const closed = new Promise((resolve) => child.once('close', (code, endedBy) => resolve({ code, endedBy })));
+  const exitedFirst = closed.then((exit) => { throw new Error(`driver runner exited (${exit.code ?? exit.endedBy}) before the driver reported its pid:\n${output}`); });
+  let filePid = null;
+  let step = 'the driver pid';
+  const endBoth = async () => {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    if (filePid !== null && listener.isOpen()) {
+      try { process.kill(filePid, 'SIGKILL'); } catch { /* it ended between the close check and the kill */ }
+    }
+    // SIGKILL cannot be caught, so both events follow.
+    const runner = await closed;
+    if (filePid !== null) await listener.ended;
+    return { runner, driver: filePid !== null };
+  };
+  try {
+    filePid = await beforeDeadline(Promise.race([listener.pid, exitedFirst]), deadline);
+    onPid?.(filePid);
+    if (signal) process.kill(target === 'runner' ? child.pid : filePid, signal);
+    step = 'the runner exit';
+    const exit = await beforeDeadline(closed, deadline);
+    step = 'the driver exit';
+    await beforeDeadline(listener.ended, deadline); // the file process outlives a signalled runner; its socket closes when it ends
+    return { exit, leftovers: readdirSync(privateDir).filter((name) => name.startsWith(prefix)) };
+  } catch (error) {
+    const ended = await endBoth();
+    if (!deadline.aborted) throw Object.assign(error, { ended });
+    throw Object.assign(new Error(`driver wait passed its deadline while waiting for ${step}; ended runner ${child.pid} and driver ${filePid ?? '(pid not reported)'} by their pids\n${output}`), { ended });
+  } finally {
+    listener.close();
+  }
+}
+
+/** The file process of a `node --test` run whose runner died: its output pipes are closed on this side, then its stdin ends; that event is what makes it write. */
+async function runBrokenPipeDriver() {
+  const privateDir = makeTempDir('proofline-site-');
+  const helper = pathToFileURL(join(root, 'tests/temp-dirs.mjs')).href;
+  const driver = join(privateDir, 'driver.mjs');
+  writeFileSync(driver, `import { test, after } from 'node:test';\nimport { makeTempDir, removeTempDirs } from '${helper}';\nafter(removeTempDirs);\ntest('driver', async () => { makeTempDir('proofline-site-'); console.log('READY'); await new Promise((resolve) => { process.stdin.on('end', () => { console.log('closed'); resolve(); }); process.stdin.resume(); }); });\n`);
+  const { NODE_TEST_CONTEXT, ...env } = process.env;
+  const child = spawn(process.execPath, [driver], { env: { ...env, NODE_TEST_CONTEXT: 'child-v8', TMPDIR: privateDir }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const closed = new Promise((resolve) => child.once('close', (code, endedBy) => resolve({ code, endedBy })));
+  child.stderr.resume();
+  await new Promise((resolve) => {
+    let seen = '';
+    child.stdout.on('data', (chunk) => {
+      seen += chunk.toString('latin1');
+      if (seen.includes('READY')) resolve();
+    });
+  });
+  child.stdout.destroy();
+  child.stderr.destroy();
+  child.stdin.destroy(); // the file process reads the end of its stdin, then writes to the pipes closed above
+  const exit = await closed;
+  return { exit, leftovers: readdirSync(privateDir).filter((name) => name.startsWith('proofline-site-')) };
+}
+
+/** Run a real test file with no test selected, in a private TMPDIR holding old and new prefixed directories; returns what is left in it. */
+async function runFileSweep(file) {
+  const privateDir = makeTempDir('proofline-site-');
+  const old = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  for (const name of ['proofline-site-stale', 'proofline-axe-stale', 'x-proofline-site-stale', 'x-proofline-axe-stale']) {
+    mkdirSync(join(privateDir, name));
+    utimesSync(join(privateDir, name), old, old);
+  }
+  mkdirSync(join(privateDir, 'proofline-site-fresh'));
+  const { NODE_TEST_CONTEXT, ...env } = process.env;
+  const child = spawn(process.execPath, ['--test', '--test-name-pattern=selects-no-test-at-all', join(root, file)], { env: { ...env, TMPDIR: privateDir }, stdio: 'ignore' });
+  const exit = await new Promise((resolve) => child.once('close', (code) => resolve(code)));
+  return { exit, left: readdirSync(privateDir).sort() };
 }
 
 /** One raw HTTP request; the path is sent exactly as given (node:http does not normalise it). */
@@ -242,9 +361,124 @@ describe('tree compare', () => {
   });
 });
 
+describe('temp directory hygiene', () => {
+  it('interrupted run leaves no proofline-site directory', { timeout: 60000 }, async () => {
+    for (const signal of ['SIGINT', 'SIGTERM']) for (const target of ['runner', 'file']) {
+      const result = await runDriver('proofline-site-', signal, target);
+      assert.deepEqual(result.leftovers, [], `${signal} to ${target}`);
+      assert.notEqual(result.exit.code, 0, 'an interrupted process cannot pass');
+    }
+  });
+
+  it('interrupted run leaves no proofline-axe directory', { timeout: 60000 }, async () => {
+    for (const signal of ['SIGINT', 'SIGTERM']) for (const target of ['runner', 'file']) {
+      const result = await runDriver('proofline-axe-', signal, target);
+      assert.deepEqual(result.leftovers, [], `${signal} to ${target}`);
+      assert.notEqual(result.exit.code, 0, 'an interrupted process cannot pass');
+    }
+    assert.match(read('tests/axe.mjs'), /makeTempDir\('proofline-axe-'\)/);
+  });
+
+  it('run whose runner died leaves no directory when its next write hits the broken pipe', { timeout: 30000 }, async () => {
+    // The node test runner exits at once on SIGINT or SIGTERM and does not always signal the file process; that process then dies of an uncaught EPIPE that skips the exit event.
+    const result = await runBrokenPipeDriver();
+    assert.deepEqual(result.leftovers, []);
+    assert.equal(result.exit.code, 1);
+  });
+
+  it('failing test still removes its directories', { timeout: 30000 }, async () => {
+    for (const failure of ["throw new Error('failure');", "assert.equal(1, 2);"]) {
+      const script = failure.startsWith('assert') ? "const assert = (await import('node:assert/strict')).default; " + failure : failure;
+      const result = await runDriver('proofline-site-', '', 'runner', script);
+      assert.notEqual(result.exit.code, 0);
+      assert.deepEqual(result.leftovers, []);
+    }
+  });
+
+  it('a driver wait that passes its deadline fails with a clear message and ends the runner and the driver', { timeout: 30000 }, async () => {
+    const deadline = new AbortController();
+    let reported = null;
+    const error = await runDriver('proofline-site-', 'SIGTERM', 'file', '', { deadline: deadline.signal, onPid: (pid) => { reported = pid; deadline.abort(); } }).then(() => null, (e) => e);
+    assert.ok(error, 'the wait rejects once its deadline has passed');
+    assert.match(error.message, /driver wait passed its deadline while waiting for the runner exit; ended runner \d+ and driver \d+ by their pids/);
+    assert.equal(error.ended?.runner?.endedBy, 'SIGKILL', 'the runner is killed by its pid');
+    assert.equal(error.ended?.driver, true, 'the driver socket closed, so the driver process has ended');
+    assert.ok(Number.isInteger(reported) && reported !== process.pid);
+  });
+
+  it('sweepStale removes only old prefixed directories', () => {
+    const dir = makeTempDir('proofline-site-');
+    const now = 1_700_000_000_000;
+    for (const [name, age] of Object.entries({ 'proofline-site-old2h': 120, 'proofline-axe-old61': 61, 'proofline-site-new59': 59, 'proofline-axe-new30': 30, 'other-old3h': 180, 'proofline-other-old3h': 180, 'x-proofline-site-old3h': 180, 'x-proofline-axe-old3h': 180 })) {
+      const path = join(dir, name);
+      mkdirSync(path);
+      utimesSync(path, (now - age * 60000) / 1000, (now - age * 60000) / 1000);
+    }
+    writeFileSync(join(dir, 'proofline-site-file'), 'keep');
+    utimesSync(join(dir, 'proofline-site-file'), (now - 180 * 60000) / 1000, (now - 180 * 60000) / 1000);
+    assert.deepEqual(sweepStale({ dir, now }).sort(), ['proofline-axe-old61', 'proofline-site-old2h']);
+    assert.deepEqual(readdirSync(dir).sort(), ['other-old3h', 'proofline-axe-new30', 'proofline-other-old3h', 'proofline-site-file', 'proofline-site-new59', 'x-proofline-axe-old3h', 'x-proofline-site-old3h']);
+  });
+
+  it('temp-dirs header documents the SIGKILL limit', () => {
+    assert.match(read('tests/temp-dirs.mjs'), /SIGKILL and power loss leave directories until the next run's sweep/);
+  });
+
+  it('both test files use the shared temp directory helper', () => {
+    for (const file of ['tests/site.test.mjs', 'tests/axe.mjs']) {
+      const source = read(file);
+      assert.match(source, /import \{[^}]*makeTempDir[^}]*\} from '\.\/temp-dirs\.mjs'/);
+      assert.doesNotMatch(source, /mkdtempSync\(/);
+    }
+  });
+
+  for (const file of ['tests/site.test.mjs', 'tests/axe.mjs']) {
+    it(`${file} sweeps old prefixed directories at the start of its run`, { timeout: 60000 }, async () => {
+      const result = await runFileSweep(file);
+      assert.equal(result.exit, 0, 'the file runs to the end with no test selected');
+      assert.deepEqual(result.left, ['proofline-site-fresh', 'x-proofline-axe-stale', 'x-proofline-site-stale'], 'only old directories whose name starts with a prefix are swept');
+    });
+  }
+});
+
 describe('workflow', () => {
   const ci = () => YAML.parse(read('.github/workflows/ci.yml')) ?? {};
   const steps = () => ci().jobs?.verify?.steps ?? [];
+
+  it('check-workflows rejects unpinned uses and accepts pinned ones', () => {
+    const sha = 'a'.repeat(40);
+    for (const [uses, message] of [
+      ['uses: actions/checkout@v7 # v7.0.1', /uses not pinned/],
+      ['uses: actions/checkout@main # v7.0.1', /uses not pinned/],
+      ['uses: actions/checkout@abc1234 # v7.0.1', /uses not pinned/],
+      [`uses: actions/checkout@${sha}`, /without a version comment/],
+      [`uses: actions/checkout@${sha} # latest`, /without a version comment/],
+    ]) {
+      const fixture = makeTree({ 'w.yml': minimalWorkflow(uses) });
+      const result = node(['scripts/check-workflows.mjs', join(fixture, 'w.yml')]);
+      assert.equal(result.status, 1, uses);
+      assert.match(result.stdout, message);
+    }
+    const pinned = makeTree({ 'w.yml': minimalWorkflow(`uses: actions/checkout@${sha} # v7.0.1`) });
+    assert.equal(node(['scripts/check-workflows.mjs', join(pinned, 'w.yml')]).status, 0);
+    const reusable = makeTree({ 'w.yml': `name: w\non: push\npermissions: {contents: read}\njobs:\n  call:\n    uses: org/repo/.github/workflows/x.yml@v1 # v1.0.0\n` });
+    assert.match(node(['scripts/check-workflows.mjs', join(reusable, 'w.yml')]).stdout, /uses not pinned/);
+    const flow = makeTree({ 'w.yml': minimalWorkflow(`{uses: actions/checkout@${sha}}`) });
+    assert.match(node(['scripts/check-workflows.mjs', join(flow, 'w.yml')]).stdout, /uses entries/);
+    assert.equal(node(['scripts/check-workflows.mjs']).status, 0);
+  });
+
+  it('ci.yml pins both actions to a commit SHA with a version comment', () => {
+    const lines = read('.github/workflows/ci.yml').split('\n').filter((line) => /^\s*uses:/.test(line));
+    assert.equal(lines.length, 2);
+    for (const line of lines) assert.match(line, /^\s*uses: actions\/(checkout|setup-node)@[0-9a-f]{40} # v7\.\d+\.\d+$/);
+  });
+
+  it('verify job has a 5 minute timeout from measured runs', () => {
+    assert.equal(ci().jobs?.verify?.['timeout-minutes'], 5);
+    const line = read('.github/workflows/ci.yml').split('\n').find((part) => /timeout-minutes:/.test(part)) ?? '';
+    for (const token of ['44704593187', '1 min 6 s', '44704839510', '47 s']) assert.ok(line.includes(token), token);
+  });
 
   it('workflow check passes on ci.yml and fails on a missing or write-all permissions block', () => {
     const ok = node(['scripts/check-workflows.mjs', '.github/workflows/ci.yml']);

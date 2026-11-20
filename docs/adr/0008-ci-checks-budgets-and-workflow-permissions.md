@@ -21,6 +21,10 @@ The user asked for CI with build, tests, link check, accessibility and a perform
 
 The script budget of the four site pages changes from 0 to one controls script of at most 2048 bytes uncompressed (ADR 0006 amendment, PRD N-5, AC-43). The browser checks add one case: with `/assets/controls.js` blocked, each of the four pages in both languages still follows the system colour theme (`colorScheme` emulation light and dark), the theme and copy buttons are hidden, and the install command is selectable.
 
+## Amendment 2026-11-20 (TASK-002: CI and test hygiene)
+
+Every `uses:` entry of every workflow is pinned to the full 40-character commit SHA of a release tag, with the tag in a comment on the same line (`actions/checkout` v7.0.1, `actions/setup-node` v7.1.0); `scripts/check-workflows.mjs` now also fails on a tag, branch or short-SHA pin, a missing version comment, and a mismatch between parsed and raw `uses:` entries. Job `verify` has `timeout-minutes: 5`, set from two measured runs (44704593187 in 1 min 6 s, 44704839510 in 47 s); the value is a decision from two samples and is raised, not tuned, if the required check turns red on a slow Chromium download. The test files `tests/site.test.mjs` and `tests/axe.mjs` create their temporary directories through `tests/temp-dirs.mjs`: they are removed on exit, SIGINT, SIGTERM and a broken output pipe, and at the start of a run directories named `proofline-site-*` or `proofline-axe-*` older than 1 hour are swept. A process killed with SIGKILL, or a power loss, leaves its directories until that sweep of the next run. The earlier statement that the script also checks secrets and `snapshot.yml` triggers is not implemented; the script checks permissions and pins only.
+
 ## Alternatives considered
 
 - Build-only CI with checks run by hand: nothing would block a red sync PR (FR-13) or a CSP regression. Rejected.
