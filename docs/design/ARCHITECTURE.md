@@ -11,10 +11,9 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | Actor or system | Talks to the site through | Direction | Contract |
 |---|---|---|---|
 | Visitor, crawler, AI agent | `https://proofline.technology` | both | HTML pages of the address table (ADR 0002), `sitemap.xml`, `robots.txt`, `/llms.txt`, `<page>.md` |
-| proofline repository (`furkansarikaya/proofline`, public) | codeload archive `https://codeload.github.com/furkansarikaya/proofline/tar.gz/<commit>`; REST `tags`, `compare/{pin}...{tag}` (sync); REST traffic views, referrers, repository (snapshot) | proofline -> site (read only) | archive contents verified against `sync/lock.json`; API JSON |
+| proofline repository (`furkansarikaya/proofline`, public) | codeload archive `https://codeload.github.com/furkansarikaya/proofline/tar.gz/<commit>`; REST `tags`, `compare/{pin}...{tag}` (sync) | proofline -> site (read only) | archive contents verified against `sync/lock.json`; API JSON |
 | Vercel (Hobby, existing project of proofline.technology) | Git integration on this repository; `vercel.json`; dashboard Deployment Protection, retention, Domains redirect | both | `npm run build` -> `dist/`; response headers; production branch `main`; Instant Rollback as the way back |
-| GitHub Actions | `.github/workflows/{ci,sync,snapshot}.yml` | both | required check `verify`; sync PR on `sync/proofline`; pushes to `traffic-data` |
-| `traffic-data` branch (orphan, this repository) | snapshot job writes, builds read | both | `snapshots/<UTC timestamp>.json`, `merged.json` (ADR 0007) |
+| GitHub Actions | `.github/workflows/{ci,sync}.yml` | both | required check `verify`; sync PR on `sync/proofline` |
 | Google Search Console, Bing Webmaster Tools | DNS TXT (Domain property); sitemap submission by hand | site -> consoles | FR-21, FR-23 |
 | DNS provider (owner) | apex and www records, TXT records | owner | not changed when the same Vercel project is reused |
 
@@ -31,9 +30,9 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | C7 | Sync pin and lock | container | `sync` | new | `pin.json`, `lock.json`; the only files a sync PR changes |
 | C8 | Build and check scripts | container | `scripts` | new | `.mjs` scripts; none publishes or deploys |
 | C9 | Hosting configuration | container | `vercel.json` | new | build command, output, trailing slash, headers, `git.deploymentEnabled` |
-| C10 | GitHub workflows | container | `.github` | new | ci (required `verify`), sync, snapshot; least privilege |
-| C11 | Operations records | container | `ops` | new | `TOKENS.md`, `LAUNCH.md`, `old-sitemap.txt`, `SETTINGS.md` |
-| C12 | Tests and fixtures | container | `tests` | new | node tests, sanitizer fixtures, mini archive, two snapshots, Playwright specs, LHCI config |
+| C10 | GitHub workflows | container | `.github` | new | ci (required `verify`), sync; least privilege |
+| C11 | Operations records | container | `ops` | new | `LAUNCH.md`, `old-sitemap.txt`, `SETTINGS.md` |
+| C12 | Tests and fixtures | container | `tests` | new | node tests, sanitizer fixtures, mini archive, Playwright specs, LHCI config |
 | C13 | Git ignore rules | container | `.gitignore` | modify | add `node_modules/`, `dist/`, `.cache/` |
 | C14 | Product documents (inputs) | container | `docs/product/site` | unchanged | PRD/DECISION/REVIEW; wording changes proposed to the owner, not edited |
 | C15 | Sync fetch and verify (`scripts/sync.mjs`) | component | `scripts` | built (TASK-007) | commands `fetch` and `lock [<commit> [<tag>]]`; archive download, per-file verification against the committed lock only, atomic cache `.cache/sync/<commit>/` plus `listing.tsv`; library modules `scripts/lib/tar.mjs` (tar reader with header checksum), `scripts/lib/sync-set.mjs` (the six globs), `scripts/lib/lock.mjs` (blob id, sha256, listing, tree hash, pin and lock validation); `npm run build` runs the fetch first |
@@ -45,13 +44,13 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | C21 | Dist checker (`scripts/check-dist.mjs`) | component | `scripts` | new | static checks over `dist/` |
 | C22 | Local static server (`scripts/serve-dist.mjs`) | component | `scripts` | new | vercel.json semantics for browser checks |
 | C23 | Workflow checker (`scripts/check-workflows.mjs`) | component | `scripts` | new | NFR-8, AC-20 |
-| C24 | Traffic merge and status | component | `scripts` | new | merge by UTC day; stale/unknown warning, exit 0 |
+| C24 | Traffic merge and status | component | `scripts` | removed | removed by PRD L-4 with the traffic snapshot job; nothing is built |
 | C25 | Launch checks (`scripts/check-launch.mjs`) | component | `scripts` | new | owner-run live checks |
 | C26 | Translation stamp (`scripts/translation-stamp.mjs`) | component | `scripts` | new | writes `translatedFrom.hash` after human confirmation |
 
 Paths deeper than the top level (`scripts/lib/...`, `src/lib/...`, `.github/workflows/...`) are planned file names inside new top-level paths; the validator checks the top-level path.
 
-Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19) -> C20 -> C21 (+ C24 status warning, which never writes to `dist/`).
+Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19) -> C20 -> C21.
 
 ## Boundaries
 
@@ -70,19 +69,17 @@ Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19)
 | C9 | C5 | Vercel runs `npm run build`, Node from `engines.node`, serves `dist` | C9 -> C5 |
 | C10 | C5 | `ci.yml` job `verify` | C10 -> C5 |
 | C10 | C7 | `sync.yml` force-pushes `sync/proofline` (pin + lock), one PR via GITHUB_TOKEN | C10 -> C7 |
-| C10 | C24 | `snapshot.yml` pushes `snapshots/<UTC timestamp>.json` + `merged.json` to `traffic-data` | C10 -> C24 |
-| C24 | C11 | `ops/TOKENS.md` expiry line; issue at <= 21 days | C11 -> C24 |
 | C23 | C10 | `.github/workflows/*.yml` parsed with `yaml` | C10 -> C23 |
 | C25 | C11 | `ops/old-sitemap.txt` | C11 -> C25 |
 | C26 | C2 | frontmatter `translatedFrom {page, hash}` | C26 -> C2 |
 | C3 | C2 | i18n, build, trailingSlash | C3 -> C2 |
 
-Public contracts (`contract_change` none today, all new): the address table (search engines), the `/llms.txt` and `.md` surface (agents), `sync/pin.json` and `sync/lock.json` (sync PR), `merged.json` on `traffic-data`. A later change to the address table needs redirects that FR-19 does not plan.
+Public contracts (`contract_change` none today, all new): the address table (search engines), the `/llms.txt` and `.md` surface (agents), `sync/pin.json` and `sync/lock.json` (sync PR). A later change to the address table needs redirects that FR-19 does not plan.
 
 ## Compatibility
 
 - Old site (deployed by the same Vercel project from another source): not preserved and never a way back (owner decision); its last production deployment stays in the project as it is and is only the previous deployment at the first push; its 94 sitemap addresses (http) get no redirects (FR-19); 92 answer 404 with the bilingual page, `/` and `/tr/` are reused.
-- Search engines: old URLs drop out; new sitemap https only; Search Console Domain property is new, M-4 baseline none, M-5 baseline old site.
+- Search engines: old URLs drop out; new sitemap https only; Search Console Domain property is new, M-4 baseline 0, M-5 baseline 0.
 - Vercel project: the existing project is connected to this repository (production branch `main`) by the hosting task; the way back is Instant Rollback to the new site's previous production deployment.
 - proofline repository: read only at a pin; the site depends on README Status sentences, the Install..What it supports range and the proof.md figures sentence; an upstream rewording fails the site build by design.
 - Upstream defects worked around: two Version lines in README Status (lines 31-32) and in Versioning and license (120-121), so the version comes from `docs/proof.md`; heading `## Quick start (5 minutes)` (line 58) must lose its suffix before the real pin (FR-31; AC-37 is a waiting condition of the launch, done by the owner upstream).
@@ -94,7 +91,7 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 2. Launch checklist items before the switch in FR-32 order (README fix upstream as a waiting condition, PB-3, first-screen check, link search, DNS TXT and console checks). Rollback: remove the TXT record.
 3. Switch: the hosting task connects the existing project to this repository with `main` launch-ready, then sets and records Deployment Protection, retention >= 7 days and the www -> apex redirect; the first production deployment of `main` is the cutover; curl checks of robots.txt, redirects, headers, `.md` content type and 404. Rollback: none to the old site (owner decision); a defect before the second deployment is fixed forward.
 4. Right after the switch: create the second production deployment of the new site (a redeploy of `main` if nothing changed), then rehearse: roll back to the first, confirm it is served, promote the second, confirm that a later push goes live; write the steps in the launch checklist (AC-30). Rollback of the rehearsal: the promote step.
-5. Launch day: first snapshot to `traffic-data` (no deployment), sitemap submission, old-address 404 check.
+5. Launch day: sitemap submission, old-address 404 check.
 6. Afterwards: every production deployment keeps a one-step way back to the deployment before it (Instant Rollback, Hobby).
 
 ## Trade-offs
@@ -122,7 +119,7 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 - 0004 Search the documents with Pagefind's Component UI on docs pages only (accepted)
 - 0005 Stay on the existing Vercel project, use Instant Rollback to the new site's previous production deployment as the way back, and keep non-production builds out of search (accepted, revised 2026-11-19 by the owner's decision)
 - 0006 Enforce privacy with a strict CSP from vercel.json, keep the origin referrer to the repository, and state privacy and licence in one footer line (accepted)
-- 0007 Save weekly traffic snapshots to an orphan traffic-data branch, warn after 10 days, and tell the owner by GitHub issues (accepted)
+- 0007 Save weekly traffic snapshots to an orphan traffic-data branch, warn after 10 days, and tell the owner by GitHub issues (superseded by PRD L-4: the job is removed)
 - 0008 Gate every change with one required CI check that builds twice, checks dist/, runs axe and Lighthouse, and verifies workflow permissions (accepted)
 - 0009 Run browser checks with the Playwright library under node:test, not with the Playwright Test runner (accepted)
 - 0010 Add the contact page at /contact/ and /tr/iletisim/, a last "Contact" menu entry, and plain links with a mailto address (accepted; adds the row `contact` to the address table of ADR 0002 and the header menu entry, built by TASK-026)
@@ -142,12 +139,12 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 | (i) Q-3 privacy and licence line | ADR 0006 (one footer line, no legal pages) | decided; wording closes in `design ui` |
 | (j) decision tags in DECISION.md and source documents | documentation task (no design) | closes in task |
 | (k) rehearsal order; meaning of "previous publication" | ADR 0005 (the new site's production deployment before the current one; rehearsal after the switch) | decided |
-| (l) Metadata read on the fine-grained token | ADR 0007 (no "mandatory" sentence found; record the form) | closes at token creation (snapshot task) |
+| (l) Metadata read on the fine-grained token | ADR 0007 (superseded by PRD L-4: the token and the job are removed) | closed by removal (PRD L-4) |
 | (m) missing proof-page sentence | ADR 0003 (build fails, names page and pattern) | decided; NFR-4 wording change for the owner |
 | (n) title match rule, og:title, preview image | ADR 0002 (case-insensitive substring; og:title covered; one static image) | decided |
 | (o) comparison base of site-written Turkish pages | ADR 0002 (sha256 of the English content file in this repository) | decided |
 | (p) referrer policy | ADR 0006 | decided |
-| (p) Search Console property type, zero baselines | ADR 0005 (Domain property; M-4 none, M-5 old site) | decided; baseline dates recorded in the launch checklist |
+| (p) Search Console property type, zero baselines | ADR 0005 (Domain property; M-4 0, M-5 0) | decided; baseline dates recorded in the launch checklist |
 | (p) DNS and certificate ownership | ADR 0005 (owner holds DNS; Vercel TLS) | decided; DNS provider named in the launch checklist |
 | (p) Codex limit text staleness | ADR 0003 (extracted and guarded) | decided |
 | (p) Turkish index pages, site navigation | ADR 0002 | decided |
@@ -156,7 +153,7 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 | (p) 404 status on Vercel | ADR 0005 (curl right after the switch) | closes in the hosting task |
 | (q) acceptance criteria for FR-10, NFR-1, NFR-5, NFR-7, NFR-8 | proposed AC-41 to AC-47 below | owner adds them to the PRD |
 
-Also answered: Q-1 (ADR 0007: grace 10 days; issues for failure, stale status and token expiry; the owner renews). Not designed: Q-2 (product question, FR-30), Q-4 (scheduled check of the proof page's external CI links; not in v1, owner decides at FR-30).
+Also answered: Q-1 (ADR 0007, superseded by PRD L-4: the traffic snapshot job is removed, so no grace period, issues or token renewal exist). Not designed: Q-2 (product question, FR-30), Q-4 (scheduled check of the proof page's external CI links; not in v1, owner decides at FR-30).
 
 ## Proposed acceptance criteria (for the owner; numbering continues after AC-40)
 
@@ -164,7 +161,7 @@ Also answered: Q-1 (ADR 0007: grace 10 days; issues for failure, stale status an
 - AC-42 (NFR-1): The header set of `vercel.json` and every response of the local server hold 0 `Set-Cookie` headers; `dist/` holds 0 uses of `document.cookie` and 0 resource references to a host other than proofline.technology; the browser checks record 0 CSP violations.
 - AC-43 (NFR-5): Lighthouse CI with the default mobile profile, median of 5 runs -> LCP <= 2500 ms and CLS <= 0.1 on the home, get-started, trust and Claude Code and Codex pages in both languages and on one synced guide; script resources count exactly 1 (`/assets/controls.js`, <= 2048 bytes uncompressed, no inline script) on those four pages in both languages; with the file blocked the page follows the system theme and the command stays selectable.
 - AC-44 (NFR-7): A synced document holds `<script>alert(1)</script>`, `<img src=x onerror=alert(1)>` and `[x](javascript:alert(1))` -> its built page holds 0 `script`, `iframe`, `object`, `embed` or `style` elements from it, 0 `on*` attributes and 0 `javascript:` URLs, and a placeholder such as `<slug>` in prose shows as visible text.
-- AC-45 (NFR-8): `scripts/check-workflows.mjs` passes: every workflow has a top-level `permissions` block that is not `write-all`; no secret other than `TRAFFIC_TOKEN`, and that one only in `snapshot.yml`; `snapshot.yml` has only `schedule` and `workflow_dispatch` triggers.
+- AC-45 (NFR-8): `scripts/check-workflows.mjs` passes: every workflow has a top-level `permissions` block that is not `write-all`; no secret other than the workflow's own `GITHUB_TOKEN` is used (reads as PRD AC-45).
 - AC-46 (indexing): A build without `VERCEL_ENV=production` and without `SITE_INDEXABLE=1` -> every page carries `noindex, nofollow`, `robots.txt` is `Disallow: /`, no `sitemap.xml` exists and the log says `indexing: blocked (<reason>)`; a production build has none of these, has the sitemap, and logs `indexing: allowed`.
 - AC-47 (determinism): Two builds from the same pin and lock -> the same sha256 over the sorted `dist/` paths and contents.
 
@@ -188,8 +185,8 @@ Answers in English: the plan is Hobby (personal, non-commercial open-source proj
 4. Search: Pagefind, Component UI under the CSP, CLS.
 5. `ci.yml` and checks: check-dist, serve-dist, axe, LHCI, determinism, check-workflows, indexing variants (AC-42, AC-43, AC-45, AC-46, AC-47). Acceptance: the `main` ruleset exists with required status check `ci / verify`, a required PR, no required approvals and blocked force pushes; the setting and its date are recorded in `ops/SETTINGS.md`.
 6. `sync.yml`: tag-follow, PR in place, red PR, approval-required observation. Acceptance: the repository setting "Allow GitHub Actions to create and approve pull requests" is on and recorded in `ops/SETTINGS.md`; the repository is public (recorded); one real sync PR shows the approval-required run and the check blocking the merge until it passes.
-7. `snapshot.yml` and merge: data branch, issues, token expiry, `ops/TOKENS.md`.
-8. Hosting and launch checklist (owner deploys): acceptance: (a) the existing Vercel project of proofline.technology is connected to this repository with production branch `main`; (b) Deployment Protection is Standard or stronger, production deployment retention is at least 7 days, and the Domains redirect www -> apex is permanent, each recorded with its date in `ops/SETTINGS.md`; (c) the plan is recorded as Hobby for a personal, non-commercial open-source project; (d) `ops/LAUNCH.md` holds the FR-32 order with the switch before the rehearsal, the rehearsal steps and result (AC-30) and the promote step after a rollback (AC-31); (e) the curl checks right after the switch pass (robots.txt, AC-29 redirects, headers, `.md` content type, 404 status); (f) a push to `traffic-data` creates no deployment; (g) `ops/old-sitemap.txt` holds the 94 old addresses.
+7. Removed (PRD L-4): the traffic snapshot job and its task are gone; nothing is built for it.
+8. Hosting and launch checklist (owner deploys): acceptance: (a) the existing Vercel project of proofline.technology is connected to this repository with production branch `main`; (b) Deployment Protection is Standard or stronger, production deployment retention is at least 7 days, and the Domains redirect www -> apex is permanent, each recorded with its date in `ops/SETTINGS.md`; (c) the plan is recorded as Hobby for a personal, non-commercial open-source project; (d) `ops/LAUNCH.md` holds the FR-32 order with the switch before the rehearsal, the rehearsal steps and result (AC-30) and the promote step after a rollback (AC-31); (e) the curl checks right after the switch pass (robots.txt, AC-29 redirects, headers, `.md` content type, 404 status); (f) `ops/old-sitemap.txt` holds the 94 old addresses.
 9. Documentation edits: Q-5 (j), applying `PRD-CHANGES.md`, DEC-2 and DEC-3.
 10. Launch check script `check:launch`.
 
@@ -199,7 +196,7 @@ Waiting condition of the launch (not a task here): the owner changes the README 
 
 | Risk | Owner action or task |
 |---|---|
-| The way back covers one step only; a deployment without a site change (for example a stray commit on `main`) moves the target | snapshots stay on `traffic-data` (ADR 0007); owner merges deliberately |
+| The way back covers one step only; a deployment without a site change (for example a stray commit on `main`) moves the target | owner merges deliberately |
 | No new-site rollback target exists between the switch and the second production deployment | hosting task creates the second deployment and rehearses right after the switch |
 | After a rollback nothing new goes live until a promote | promote step in `ops/LAUNCH.md` (AC-31) |
 | `404.html` might not be served with status 404 | curl right after the switch (task 8) |
@@ -214,8 +211,6 @@ Waiting condition of the launch (not a task here): the owner changes the README 
 ## Brief items found wrong or contradicted
 
 - Title rule: cutting every H1 at 40 characters contradicts AC-10 ("its own H1") for 3 synced pages at the candidate pin (48, 44, 41 chars); ADR 0002 keeps the full H1 for synced pages.
-- Snapshot permissions: `contents: write` alone cannot open the failure, stale and expiry issues (AC-25); `issues: write` added (ADR 0007, and on sync.yml).
-- Status file: the brief names `snapshots/latest.json` but lists only `snapshots/<date>.json` and `merged.json`; the status is `merged.json` `last_snapshot`. Same-day manual and scheduled runs collide on a date name, so files use a UTC timestamp.
 - Lock scope: the build also needs `README.md` (FR-4, AC-8, AC-9); the lock lists it as a read-only input. The tarball bytes are not hashed, the contents are.
 - CSP: without `'wasm-unsafe-eval'` Pagefind's WebAssembly search is expected to fail (inferred); added in ADR 0006.
 - Dependencies: the synced set has GFM tables and YAML frontmatter, so remark-gfm (and remark-rehype, rehype-stringify) are needed; their versions are not among the verified pins.
@@ -224,5 +219,4 @@ Waiting condition of the launch (not a task here): the owner changes the README 
 - Link counts 289/43/13 are link occurrences; distinct targets per file are 109/40/13.
 - README has two Version lines in Status (31-32) as well as in Versioning and license (120-121).
 - The anonymous 60/h limit is a problem mainly because hosted runner IPs are shared (inferred), not because the weekly job makes many calls.
-- Vercel: a `traffic-data` push makes no deployment only if Vercel reads `git.deploymentEnabled` from `main`'s vercel.json; the orphan branch therefore also carries its own vercel.json and the hosting task checks it with one push.
 - Evidence tree note: `docs/decisions.md` is 0 bytes in `.agents/local/scratch/pl-tree/` (the brief does not say whether that is intentional); only its existence matters for link mapping.
