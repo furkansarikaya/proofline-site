@@ -1,7 +1,5 @@
 # Task: TASK-001 - Astro static site skeleton with bilingual placeholders and ci / verify
 
-**Status:** in-progress
-
 ---
 type: feature
 size: L
@@ -83,17 +81,3 @@ COMPLEX - new dependencies and a new integration across site code, tests and CI 
 - `npm ci`
 - `npm test`
 - `npm run build`
-
-## Proofline Status
-
-<!-- PROOFLINE-STATUS:BEGIN:TASK-001 -->
-- run: TASK-001
-- type: feature
-- stage: RUNNING (PLANNING, handoff PLANNED)
-- event: run-start
-- updated: 2026-11-19T21:01:52Z
-- runtime: claude
-- session: 255c1b95-906f-4b40-ba0d-6a5f3d745bbe
-- estimate: size L
-- duration: 0 min
-<!-- PROOFLINE-STATUS:END:TASK-001 -->
