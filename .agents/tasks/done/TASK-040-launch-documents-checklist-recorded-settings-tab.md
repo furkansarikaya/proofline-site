@@ -1,5 +1,7 @@
 # Task: TASK-040 - Launch documents: checklist, recorded-settings table, old address list
 
+**Status:** done
+
 ---
 origin: prd:site
 type: docs
@@ -104,3 +106,135 @@ STANDARD - new operations documents confined to `ops/`, no executable code, no i
 - `sort -u ops/old-sitemap.txt | wc -l`
 - `grep -c '^https://proofline.technology/.*/$' ops/old-sitemap.txt`
 - `grep -c '^### Step ' ops/LAUNCH.md`
+
+## Proofline Status
+
+<!-- PROOFLINE-STATUS:BEGIN:TASK-040 -->
+- run: TASK-040
+- type: docs
+- stage: RUNNING (PLANNING, handoff PLANNED)
+- event: run-start
+- updated: 2026-11-20T17:36:38Z
+- runtime: claude
+- session: 8bfe83d7-18e5-44d1-9008-a045f052b9c8
+- estimate: size M
+- duration: 0 min
+<!-- PROOFLINE-STATUS:END:TASK-040 -->
+
+## Completion Report
+
+<!-- COMPLETION-REPORT:BEGIN:TASK-040 -->
+# Completion Report: TASK-040
+
+<!-- proofline:summary:begin -->
+Changed: the owner now has three launch documents under `ops/`: the launch checklist in 12 ordered steps, an empty table for the owner steps to record their settings, and the list of the 94 old site addresses that the launch checks must find answering not found.
+Verify: `grep -c '^### Step ' ops/LAUNCH.md`
+<!-- proofline:summary:end -->
+
+Written by the lead from run evidence only.
+
+## Implementation Summary
+
+- Delivery: nothing is committed; commit and push each need the user's explicit approval (`commit`, `push`)
+- Task: TASK-040 — Launch documents: checklist, recorded-settings table, old address list; class STANDARD; tier docs; branch `proofline/TASK-040-launch-documents-checklist-recorded-settings-tab`
+- Changed: `ops/LAUNCH.md` (AC-1 to AC-11, AC-15), `ops/SETTINGS.md` (AC-6, AC-12, AC-15), `ops/old-sitemap.txt` (AC-13, AC-14, AC-15); all three are new and hold no recorded result.
+- Checklist order: the 11 items of FR-32 plus the manual pin update as step 2, before the repository link search (decision L-3); the sync workflow and the Lighthouse budget appear only in the post-launch section.
+- Settings table: 15 rows with empty cells, plus an empty section Keyboard pass, because TASK-031 plans to record its keyboard pass in a section of that name while the task's table lists it as a row.
+- Old address list: 94 addresses in the https form on the apex host, built from the inventory in `docs/product/site/RESEARCH.md` lines 95 to 98 (8 pages, 28 skills, 11 agents, each with its Turkish twin) and equal to it in both directions.
+- Correction to the task text: the task's own command that counts the old addresses (`grep -c '^https://proofline.technology/.*/$'`) prints 93 on a correct file, because the home address has no second slash; the plan counts them with a pattern that accepts it and prints 94.
+
+## TDD Evidence
+
+| path | RED | GREEN/FIX | owner |
+|---|---|---|---|
+| `ops/LAUNCH.md` | exempt: documents only, no executable behaviour | the plan commands pass | implementer |
+| `ops/SETTINGS.md` | exempt: documents only | the plan commands pass | implementer |
+| `ops/old-sitemap.txt` | exempt: documents only | the plan commands pass | implementer |
+
+## Verification
+
+- VERIFY: PASS (high); commands: the first six commands of the plan list plus the thirteen per-criterion commands added by amendments 001 and 002 (the second amendment replaced four of them by equivalents without the pipe character), and `npm ci` and `npm test`.
+
+## Assumptions
+
+- AS-2 (low): the keyboard pass section expected by TASK-031 may be an empty heading in the settings document next to the table row — unverified in the plan register; TASK-031 fills it.
+
+## Review Result
+
+| gate | status | confidence | fix round | findings |
+|---|---|---|---|---|
+| SECRETS | pass | high | 0 | none |
+| QA | pass | high | 0 | QA-1 QA-2 |
+| VERIFY | pass | high | 0 | VERIFY-1 |
+
+Fix rounds used: 0 of 2.
+
+- QA: QA-1 info the saved old sitemap used as a cross-check is absent in this environment, so the comparison with the inventory is the binding proof; QA-2 info the QA report of the final round was the report of the previous identical pass, resubmitted as it stood.
+- VERIFY: VERIFY-1 info `docs/design/ARCHITECTURE.md` still names a token file (lines 35, 74 and 191) that belongs to the removed traffic snapshot; the overview is left unchanged here because TASK-042 removes the snapshot references from the design documents.
+
+Two amendments were needed because the plan, not the files, was incomplete: the verify gate can prove a criterion only with a command of the plan's verification list (amendment 001 added the per-criterion commands) and cannot cite a command that contains the pipe character (amendment 002). An earlier QA round also found a defect in its own probe script (a case-sensitive text match), which was fixed in the QA plan. The final gates ran on the final tree.
+
+- QA:-: not reproduced (NOT_RERUN)
+
+## QA Result
+
+QA: PASS (high); all frozen scenarios passed, the 47 adversarial copies were all caught, and each of the thirteen plan commands failed on at least one adversarial copy.
+
+## Amendments
+
+- 001-verification-commands: added thirteen per-criterion commands to the plan's verification list after the verify gate could prove only two criteria; no scope, criterion, contract or dependency changed.
+- 002-pipe-free-commands: replaced four of those commands by equivalents without the pipe character after the verify gate could not cite them; no other change.
+
+## Execution
+
+Generated from the decision records by `agent.sh report-execution TASK-040` when the report is published; never edited by hand.
+
+| role | focus | runtime | model | effort | signals | note |
+|---|---|---|---|---|---|---|
+| implementer | - | claude | sonnet | high | none | runtime set by the operator |
+| qa | - | claude | sonnet | medium | none | agent path |
+| verifier | - | claude | sonnet | medium | none | agent path |
+| qa | - | claude | sonnet | medium | none | agent path |
+
+## Known Limitations / Follow-up
+
+- The knowledge step was recorded with the batch default: no knowledge page was written, and this report is the suggestion to the user: the overview `docs/design/ARCHITECTURE.md` lists component C11 with a leftover token file name, to be removed together with the other snapshot references (TASK-042).
+- The 94 addresses depend on the inventory in RESEARCH; an old address its sitemap did not list cannot be checked at launch.
+- The task file's Verification command for the address count is wrong for the home address; later tasks that reuse it (TASK-041) should use the pattern of the plan.
+
+## Execution
+
+<!-- proofline:claims:begin -->
+## Verification claims
+
+Generated from the gate records by the publish step and checked again by verify-completion-report; never edited by hand. A gate or check is "ran on the final tree" only when its record carries the fingerprint of the tree being published. No sentence outside this block may claim a visual, browser, screenshot or UI check.
+
+- Gate SECRETS: ran on the final tree: pass (gate SECRETS, record 8)
+- Gate QA: ran on the final tree: pass (gate QA, record 9)
+- Gate VERIFY: ran on the final tree: pass (gate VERIFY, record 10)
+- Visual/browser check: not part of this run (no QA:visual gate); no visual, browser or screenshot check is claimed
+
+Final message line (paste it unchanged): Verification claims (from the ledger): 3 of 3 gates hold a record for the final tree; visual/browser check: not part of this run (no QA:visual gate); no visual, browser or screenshot check is claimed.
+Claims-hash: 04292b18601dfc79b55d4524f7946f91a7ac1106d3fe988dd5579509c472fd38
+<!-- proofline:claims:end -->
+
+<!-- proofline:facts:begin -->
+## Facts
+
+Generated from the run records by `agent.sh report-facts TASK-040` when the report is published; never edited by hand. Numbers in the text above must match it.
+
+- Class: STANDARD
+- Required gates: 3
+- Gate SECRETS: pass; findings: none
+- Gate QA: pass; findings: QA-1 QA-2
+- Gate VERIFY: pass; findings: VERIFY-1
+- Friction notes recorded (A200): proofline_bug 0, user-command 0, user-shell 0
+- Knowledge step: not_applicable; not_applicable reason: batch default (A291): no knowledge page was written, the suggestion to the user is in the report
+- Suggestion to the user (knowledge): TASK-040: no knowledge note was written and nothing was changed under docs/, in skills or in rules; the acceptance criteria mention 'command' (user-visible behaviour); if you want it kept, write a wiki page or a design-document change yourself, or ask for a documentation task
+- Fix rounds: 0 of 2
+- Refreezes: 2
+- Files changed (task-owned paths): 3
+- Worker-evidence run records: total 0, ended pass 0, ended fail 0 (a RED record ends fail on purpose; this is not a count of failing tests)
+- Test cases: no record carries the number of individual tests, so no such number is stated here.
+<!-- proofline:facts:end -->
+<!-- COMPLETION-REPORT:END:TASK-040 -->
