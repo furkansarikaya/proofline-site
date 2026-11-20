@@ -1,5 +1,5 @@
 # proofline manifest: sha256 and path of every installed file (used by `proofline upgrade`)
-# version: 0.0.171
+# version: 0.0.173
 # profile: balanced
 # runtimes: claude codex
 # toml-.codex/config.toml: 67e1d53a27943bc0a3bad515d00cb04d9fde490cfb49701c3f836ba068fb20ba
@@ -41,7 +41,7 @@ c1bdc449bec84b75a3d03c58a6dcd572a31bf90be5ffac4c76680bc1aafa06f5  .agents/script
 107947c8d6351ecd47c3145c48e07c5c086ab33363f44d04792cf6c97f9d3a6d  .agents/scripts/core/adapters/net.mjs
 9c3af2181ec46fe60e481dbcfdf88f5687634ff15a7afba177c5ebf7dcf6c703  .agents/scripts/core/adapters/netmain.mjs
 705e90e17eafc6e007eb05fdb90192421e05da27f6616ed91399d6b9a4c2d031  .agents/scripts/core/advance.mjs
-6116271023d5c1e511305c37d27751eff94e71b6094c2fa1929f1b1c98887136  .agents/scripts/core/answer.mjs
+23fef91523f2b3879d1f0279e03347889700262e269cb539183e935e1a3301ff  .agents/scripts/core/answer.mjs
 551c2ae0bd9f39aef5d488d3f50de3965b4359791425857ad0a8112551f9db47  .agents/scripts/core/approvals.mjs
 25eff0c3d6246e4688872dcf53783c68150c0402f529d2a9c2ae032a4a21368a  .agents/scripts/core/approve.mjs
 10d334fcbe83760a8a7414c1aa4f110998c82bb424b2de5852105f30fb8f97a1  .agents/scripts/core/batch.mjs
@@ -52,7 +52,7 @@ e3455fc4e65f2b179e47585936c142f4b67409229b71948a18fc269e0e6442fd  .agents/script
 4fb88c2cb6117719b450c35425b4f758bc80eacc8eb334ed3ba48b7a30bbc0d2  .agents/scripts/core/cfgcli.mjs
 e0747cbba625437c22dca2f3d464ce19d27e69ad5f1ff6af919e41a18ec32485  .agents/scripts/core/claimwords.mjs
 271b0238530b1836a339a2e9b913aca0c349d9df99ce7a88773876f19545af29  .agents/scripts/core/cliio.mjs
-607672d0d7031443a69abe9ac1f5fa6364fcbf9eb034488e1b5ab611a1cb630a  .agents/scripts/core/cliusage.mjs
+a8ce166650a13952c9ca6415086a0a4b467537682742ff0fc5635461ebeaa09c  .agents/scripts/core/cliusage.mjs
 1ddc021c8194ca198883df0f4580700dbd0d847b330ee9cad398969818a111da  .agents/scripts/core/clock.mjs
 5d3700e164345e92254a6ea0aaaf89aae046ca2309472eb80965894eaca04e31  .agents/scripts/core/codetrust.mjs
 6b3efa0e830ca6eecd44fc95787add2558cd92fb3b55f168e2d8e30b88c576ee  .agents/scripts/core/codexprofile.mjs
@@ -96,14 +96,14 @@ bfd57ce2b20712eab50ab12d56d6e8e7bdcf6d0a1eb287db7f76d0e92b4ae68c  .agents/script
 0cb15b756a2f67edace38afb516405665fed544a0b12fd9d349e18660c46eb68  .agents/scripts/core/ecodata.mjs
 fa008ba7499687cdab89fc29da3933f3b82616eb4bffd681e0d1fbe03c4df119  .agents/scripts/core/ere.mjs
 04c65bde58bd0cea4a2f5a7970c0616e782b97d3fc888dd2c6d2ee40657f2b1f  .agents/scripts/core/errors.mjs
-6327550992009e84bb298e904dbfafd56616a6971697241063a2707a897a5062  .agents/scripts/core/evidencerepair.mjs
+cf7a9311e0e39bb680bca0f711d6658071540acb2b7d78efa33ec2ca07ef1c0e  .agents/scripts/core/evidencerepair.mjs
 7a4ca649cd4662653c8656942e5d58492e6125973d5d33a6d7e2a839f9de501b  .agents/scripts/core/exceptionsapproval.mjs
 dbb8963b18656cc1d2788c49c9962955aa5ea7c8917ff2c8b5f8a0a64090e896  .agents/scripts/core/exclimits.mjs
 d636258632f59f47c9857bef1436e0fd89bf99caefdd422d1d1a7bf6d9f600e1  .agents/scripts/core/execpolicy.mjs
 69479756abb8c1ae0e7a5f643949513dc7ccef6da39e7f8b288f2ff4b2d531f2  .agents/scripts/core/fingerprint.mjs
-da33c8ae3316e414714330c617eeb27d983e1824ad3272ba284599f9a7251b55  .agents/scripts/core/freeze.mjs
+e1e49e73cee6aeed0ae58b05cc1283850d19aaecf92c9a98d9f6a8b43370b6c4  .agents/scripts/core/freeze.mjs
 2812ae4248545ac249b6052bcdea46dbb9ada97a243bceddaca2bca7d3318602  .agents/scripts/core/friction.mjs
-885c6762bd5a75f719b305715a761d72003ed5382cceb8c43bd9d2bedc3ff69d  .agents/scripts/core/gatecmd.mjs
+05f1664db616416b51f7d49b838c966c6616f52e1bf9a095ebeefd9de1e9c1ea  .agents/scripts/core/gatecmd.mjs
 47a24a38155ba8ebd37a584b6a770fd682bd2fd69247072e95c375d0447d3e14  .agents/scripts/core/gates.mjs
 feb2877e16c0c1f83699528afc6e309168e83d1db461a43d8e451e51d4e7df9c  .agents/scripts/core/gatewrite.mjs
 0b2d36b645bf8bedb84e12cfa58e5392aa138527a18b3bee5f1229ebaf73ab71  .agents/scripts/core/git.mjs
@@ -117,7 +117,7 @@ b5fcd108e302db25f34109a6e427ec5b9887591b6890ddcab8c37f14e0067985  .agents/script
 730c8a885e3de968b50755455a5e556978e5147377d0d354792a42201aff0555  .agents/scripts/core/hooksoff.mjs
 41b7cd5b0c859d7f623c427212f922b30e5d682be0c34f3059b760bc0fcf20b1  .agents/scripts/core/insights.mjs
 a5ce1b26f9c3a8fd460f363ec86e4e9cee23e0d707d59f687d17b2cde9bfa952  .agents/scripts/core/insightsfront.mjs
-3eae021f19eae0a285097e25b21f9853685df0b9f220ff8efaf8819ee8b8c739  .agents/scripts/core/install.mjs
+034b4c370eaedb6792bf684faa81aa6c26ca8ad4391994c0baf7f6e2f9d0fa62  .agents/scripts/core/install.mjs
 0aa09e3ad68910214c233762e8d3e4fb0dfff585ddfdb0801947e42f143e10da  .agents/scripts/core/kirules.mjs
 3cd16c0ce13d438d117912010e4f3b0db33b3472ed9defb1b15c691c9cec4313  .agents/scripts/core/knowledge.mjs
 7be73c2cfcfe3f0b125c13e7e500efaac55e8d161a18182e1d2893d7326dccf3  .agents/scripts/core/knownissues.mjs
@@ -130,7 +130,7 @@ f1ce00be71da75f85a13460c6e6920215831ff8980c4ffee66334c2240c515a7  .agents/script
 2e7d8bb838a116bd015333f1796990dc161f610f900d6dbd09a837088b9a4617  .agents/scripts/core/lifecycle.mjs
 dac389d6afd529be06a132d01d94c30b335cc734d77ed36eaefa55875cf1b508  .agents/scripts/core/lifeutil.mjs
 5064b6a2d25c902316ab654434a778aa19f52f8e181b19ad173b9c1f5301b398  .agents/scripts/core/lock.mjs
-62f65b30b9d88b30cc92e105cf85e52b42d2ba08fb811fc03ed3559549a411e7  .agents/scripts/core/merge.mjs
+e0c8c08acaa1f3ab1e5ac95fdac771e514c340bb633c0deb9ff2d12887876150  .agents/scripts/core/merge.mjs
 27a45c07271e417baea52b2c03fda996992d8803c41cecc708961f1a0a2890ea  .agents/scripts/core/next.mjs
 240e8953563d3b88d9272f9bacece8a44f586b537dfe444f0b104e1c254af905  .agents/scripts/core/nextuser.mjs
 43abbd78e50c880e905f949d725aadd26b338fcac758a37b0bc67dc036c96330  .agents/scripts/core/node-check.mjs
@@ -142,12 +142,12 @@ fd11d12ecf9f659bb71c1deb63f8353a248d03c21a08d0cb6d1591f90a4b23e3  .agents/script
 4362126050336709326a4e64fd1971ddc9fd3320169719571d75a01f9d0188aa  .agents/scripts/core/platform.mjs
 c76d4963ce7934893833805f819ae755ee80114a2fb8632821ecd6f619c5316f  .agents/scripts/core/probes.mjs
 3f662d5b4987240805c3e8e96a1f624e38d50b5da79a7b9f9e2ad3070ffeafcc  .agents/scripts/core/proc.mjs
-1cb055481e1768e5f6de1dd832f5887ccf3d6ccf2d0ce4ad20a7a28e0effa53a  .agents/scripts/core/proflinecli.mjs
+715715c4173dfef8b55bad24de2c0162d7986e2a8539905a701ec6b8476a71ee  .agents/scripts/core/proflinecli.mjs
 e474701adc847ef8ab357a0af5f841ad57bcce889ca6c935e431ebd37211a627  .agents/scripts/core/questions.mjs
 d4b5c8389e4dece878018d92c43085c9e6f547cba693aee501c9242dd5552199  .agents/scripts/core/queue.mjs
 e6c217a2c61c5fa0e0917d34f0db3a301efa89c98643153db4cb8bea25054620  .agents/scripts/core/record.mjs
 6457087b36db36c26c87550055d5ee2305a502617a8212f63a2864acf38cbef0  .agents/scripts/core/records.mjs
-8daffb94d79a26dff767131b4004661907bd9e9f7f10911d8ea9022edac4ff47  .agents/scripts/core/reopen.mjs
+7e0d84f6e50a142b1a8ba6fb46e206b425e58f1ee72c3b63071d2996143bf658  .agents/scripts/core/reopen.mjs
 0011d9347bcfc04c0f786889dcddc4a37e3abbcf3a6f850e251f1534e68d1b3f  .agents/scripts/core/reports.mjs
 d6c3e41f5c16f228bb3073c5f3b5d62f552f9e5399c2e7c1e5fe468d1a826f2d  .agents/scripts/core/resultutil.mjs
 cdc8ded7de4214865fcafe0e8edfe23fa52d3c501d87ad66be4429be017c8385  .agents/scripts/core/rules.mjs
@@ -177,14 +177,14 @@ db7c7061fddb108a14d91586177cf3d5f61f0c86854f3dc14a6eb1ec6df4d97d  .agents/script
 683f37758ba143b36b9df02651592aa36948eb23469ff2d7558ca29ecfefcc6e  .agents/scripts/core/worktree.mjs
 a2f1760102db9d2910e735698173b9b76fb56a58ea7f0a6011e38e8514754d20  .agents/scripts/dispatch.sh
 92971ce72f353767cf5803db6f03d56c5dbc8436fc0a9d984563e87aa531fbc2  .agents/scripts/proofline-core.mjs
-87bf05f01620787b6fe59a92173a4700c8e9acec54df4fa2423d5de147d4b394  .agents/skills/api-design/SKILL.md
+ae5021bb40a1e7c45f46e22e841e5e0efbd04fdb7d312bb90d108f3ecb508a42  .agents/skills/api-design/SKILL.md
 cfb3f9e751dda51b897a6fa42e264622832c9935ced7bd11e80bd49dbc58512a  .agents/skills/api-design/agents/openai.yaml
 d2835c3f63d3f8858e006b1cf6585a82e9a2dcb630e9fcdf529f726d45f91179  .agents/skills/api-design/assets/API.template.md
 5b80ac0b59c31c2dfc8fc279b192ca9910041dce6f6e711896c422e8947f1356  .agents/skills/api-design/assets/ledger-template.md
 2a49e8ce092ed5b1efc746315545a98f1bacf3b279ded102feac3ab2a5b728e9  .agents/skills/api-design/references/METHOD.md
 05570956bbf41b3fd8d7fa66e3985842c12797aa7d8e129a84c3c1f26c5c754f  .agents/skills/api-design/schema/api.schema.json
 92ad94c45a42025cddd772a56a6704ed266832fdbe249d9e8dd1565425c60573  .agents/skills/api-design/scripts/validate-api.mjs
-0dd1e6fee30debb08e280fa1a22ab64a5a1ae1a0336e976fd6826cd39288cba6  .agents/skills/concurrency-proof/SKILL.md
+077b074a09c09afbf32cfc68ebba0d82fe741e73ae0b88b3101a43b7105cba4a  .agents/skills/concurrency-proof/SKILL.md
 5745ec68a0285772321d5dcd518643947a86c80b5951eee8f18bf9f513fe83b5  .agents/skills/concurrency-proof/agents/openai.yaml
 8e5b25a801a4cad9eb7078bb328a647c43e2b4f9f0e15192f878f2c070bc236a  .agents/skills/concurrency-proof/assets/ledger-template.md
 e7788a9069fc211a3fa80ae1fb6e4c686d1bbe1dbdc9b49b4c6b4d7be8a244b3  .agents/skills/concurrency-proof/references/INTERLEAVING.md
@@ -195,7 +195,7 @@ e6b1c2b9859676fc229e0229f395747412444ec79a5e68fd645bc2f2df316b33  .agents/skills
 45f482d35e34602b5351e1095dad4468d0452f0de83cb29bf2c3a7162bbd4a00  .agents/skills/concurrency-proof/scripts/find-shared-state.mjs
 2a3cccc88fb701f80d2a4a922fd822817d75d58e092704ae07775cef9dc51dba  .agents/skills/concurrency-proof/scripts/validate-concurrency.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/concurrency-proof/scripts/winprog.mjs
-2016dbf539ab9dc85f45dad54ae636d836c8e6ec7de93320ebfc1721295308bf  .agents/skills/contract-proof/SKILL.md
+2a2aff9e89f3b8e28d8052a72b019b3dc7f2ae555ca126e37e98364965339a6d  .agents/skills/contract-proof/SKILL.md
 ffd398540114e1ba51cc024274c6568ad0802d19637cabadcf865af688263434  .agents/skills/contract-proof/agents/openai.yaml
 b5605ddb7d0de8e8daf822a436f162f85278a65b9aeb714b86d4e1f216804a94  .agents/skills/contract-proof/assets/REPORT.template.md
 1e6ef4bfdbd127c35b65d69eed2dc5c9f627ddb77e7e81bb83bb678e585fe2ff  .agents/skills/contract-proof/assets/ledger-template.md
@@ -204,7 +204,7 @@ b5605ddb7d0de8e8daf822a436f162f85278a65b9aeb714b86d4e1f216804a94  .agents/skills
 16d85a4e67fe75f29a67ae7d90e8842d8086efd64e6569b93909e4f7e33d2732  .agents/skills/contract-proof/scripts/diff-contract.mjs
 8dde99994a32dea38d44ff20ae624f45a93c8d8471e63db5277ad9d4fd9df9be  .agents/skills/contract-proof/scripts/validate-contract.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/contract-proof/scripts/winprog.mjs
-7d13a5618701f0122b0de8788de6e042cd566c40cab2396a60e9939d307d0ee1  .agents/skills/data-design/SKILL.md
+448fd40095143b9474ca96de6ec98e305e7ab8552c30580e9d8ab6ea48fffacb  .agents/skills/data-design/SKILL.md
 71aa9a5e153793a152175a83f72aa0bb2e7f74344a2473bb358e6f03b3ec345f  .agents/skills/data-design/agents/openai.yaml
 fb14fbd65277d7fef89b2a90c909f5b2941bdfd5db2a3e925d4fb6359be2a127  .agents/skills/data-design/assets/DATA.template.md
 7b5e8edda4bad58f9dc579982cc776473f5d6df6798785f190846096a8b23176  .agents/skills/data-design/assets/DATA_MODEL.template.md
@@ -219,14 +219,14 @@ dc1572219535e8d1e81735f02cd73d36271e1832e9aa4f5485fd28c16ff6d665  .agents/skills
 198d209a2a90c3f310400d82b935382d456c2340c2c725eb4070ae491ec62c6b  .agents/skills/data-design/scripts/migration-check.mjs
 0b5b3975d0d63b94b06d43285bcc86fdaf38ed0424606888a1efe6da9ddc00fd  .agents/skills/data-design/scripts/validate-data.mjs
 4ee17f528af107df0beabd9eec3910168ec4c00874bc25906176c67b257bf2ae  .agents/skills/data-design/scripts/validate-migration.mjs
-1398c928e1f175b407eb093a35c10aa428040f1e829e851477ae04825454d2e6  .agents/skills/debug-proof/SKILL.md
+0410373e51895554af29ca3e25870c9a6128977ff0b82d7349a3c44a9831fb06  .agents/skills/debug-proof/SKILL.md
 350504cd35447cd662dc6074661893f32d08d53495b78cc2cccbf82d33c7789f  .agents/skills/debug-proof/agents/openai.yaml
 6561b7a714198adffe62f1aa82f174c69cc1c5521154165a3be7f7d5a93853c3  .agents/skills/debug-proof/assets/ledger-template.md
 acb30816f633ee59889f5fbfe20a59230d88d31f5084c419bfe42cf7e0324e8e  .agents/skills/debug-proof/references/BISECT.md
 d1cf3a4aef58d2119272b3ec8be9d41f69fa28fd0071feb8e18a728d8ab3f6f9  .agents/skills/debug-proof/references/METHOD.md
 f1114a1350f4707e96385178932ba8ae6e7bfc471450daecf1040d0e8d3428d2  .agents/skills/debug-proof/schema/debug.schema.json
 eae6978c02c3176565dd247a32ae7f0da5147e0debc5e9466dceb27a681a967b  .agents/skills/debug-proof/scripts/validate-debug.mjs
-b48687512d8932e5aa09526fbf6128eff6da738d45f7be0863d9216eab34ff90  .agents/skills/design-sync/SKILL.md
+2f232c81071a45fddfd35f4d160dd78004386b5601a56e3e7693b8edf67707d9  .agents/skills/design-sync/SKILL.md
 fe80afdac492f218eb8e41018fe209eafc0fffde4c4c51e35531ebae313b6740  .agents/skills/design-sync/agents/openai.yaml
 b5738ea6620e5f6ed24970cbd8195902019b98c9fd0b7ceead88ec2188911e5e  .agents/skills/design-sync/assets/SYNC.template.md
 86ead00d60a177e2d55019eb3a9ed325298d4dc24815de9dae61cfb3e63b1b7c  .agents/skills/design-sync/assets/ledger-template.md
@@ -237,13 +237,13 @@ d8f64b1397ff021906b5e293a714fac4f5520a26d3e4fa255aadf55f206fc3b9  .agents/skills
 abbaa8c51052a5a3f561262a8314aeea629b97769cd22c7108030c7bafe7efb1  .agents/skills/design-sync/scripts/design-sync.mjs
 c390fd72f3028170e83e96bdae72d373bbfcf36f406f09d13c1d64b10ab7d96f  .agents/skills/design-sync/scripts/ecosystems.mjs
 644a2521e0b59ee9418c1192124b7fbf4c88441aac6f00a258d18ae3ad533a97  .agents/skills/design-sync/scripts/validate-sync.mjs
-51451730a7572a3b4875de79d6f43da38e20a34c365b71e320c9028ab3162ca6  .agents/skills/docs-writer/SKILL.md
+7e16787c60a7e4e1ee450aca76185f219349ba0a47600dfd0f41217034a82cd6  .agents/skills/docs-writer/SKILL.md
 f3f8849a305ccb144a352bd07101057062e36bb390d541e84428d6cf5b650e66  .agents/skills/docs-writer/agents/openai.yaml
 43b7bd8ecba3900d696a297ac6004e40beebde5ce6320c60a28743c660d01537  .agents/skills/docs-writer/references/EVIDENCE.md
 d7c537290e56bb2348838bf6d41ef7a5d7539fd1406ba35df9fae524e4c7e691  .agents/skills/docs-writer/references/WRITING.md
 37880b952f37e11f924df0408612f391d2f5fb4e354be5885bd90aff9a438e78  .agents/skills/docs-writer/scripts/check-docs.mjs
 eca52549d41984c10230d494f274be6a95b5e754440839a4a9bfcce89da2fdbd  .agents/skills/docs-writer/scripts/check-writing.mjs
-81f2f41e715316a2e9b6c86939339ea917ac1f9662db956c361a35f7ee611f77  .agents/skills/evidence-map/SKILL.md
+9c8d05a44b3c0515cc014cccaaf86fd7d9b1bf9fb1d1e1e834cc8002c4cb999d  .agents/skills/evidence-map/SKILL.md
 8b0a56eb9de07d235db4f01dcb9438277c687a7d42246eacf539e4432f8e3264  .agents/skills/evidence-map/agents/openai.yaml
 c82fcf8374021b96c0a087814cab61629979a2aec0c5b881eea91d734b8342ff  .agents/skills/evidence-map/assets/EVIDENCE.template.md
 11e2adb03e3a917f28ab8c1f8ff7b211dae678f28e8eb210a3e88a7621396602  .agents/skills/evidence-map/assets/explorer-evidence.template.md
@@ -257,11 +257,11 @@ bb83bc32df394a8ba732ab3469e56e4136f57d3fb44b237268b6e4eb70958ccf  .agents/skills
 552af5e4a59c34bb4e71058e6f1a54726e9e9421f91814eb3d32b754f1fbeafa  .agents/skills/evidence-map/scripts/validate-impact.mjs
 8334f107fe4d5742a19d5161f58f6fb5881b30116bad5e8724747dbb34f6253a  .agents/skills/evidence-map/scripts/verify-claims.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/evidence-map/scripts/winprog.mjs
-d7d9f5e0252ca0b60440f7471dba89c2bc0f8a90ce16dbd84aefef0551998608  .agents/skills/explain-html/SKILL.md
+7d3882a8414c19bd3ccb0cd26a4878ac7cf04604afd7ea5a34875f88456e0f63  .agents/skills/explain-html/SKILL.md
 697a6c89d4cc270fd038ba04fa722c7c0cbee09118142114513009978d4bb479  .agents/skills/explain-html/agents/openai.yaml
 d7c537290e56bb2348838bf6d41ef7a5d7539fd1406ba35df9fae524e4c7e691  .agents/skills/explain-html/references/WRITING.md
 9efa65215c770eb9eb98d9e84466e182deecfa3f786a3af54903026c8917f898  .agents/skills/explain-html/scripts/check-html.mjs
-6399b07a9942f0b8c0bacf4614f51c40c573f8bed67336e0966ff6a6e55b228b  .agents/skills/exploit-proof/SKILL.md
+c6f019dac5eff4bdf654b4bc0fc249be5e0292471f6f12b56676ddd622989628  .agents/skills/exploit-proof/SKILL.md
 0b226558668aa814d3ec8247e3af2e37e8b4e6a8671baf6754cd08fe606d8601  .agents/skills/exploit-proof/agents/openai.yaml
 c4acdde8ca4fbe235020f5bd5e6567a9d6dd6f5a136351a01366159acb5f3a78  .agents/skills/exploit-proof/assets/REPORT.template.md
 8aaf1ecfe71aa68ffdfb439123da9736c91e3fad75ac694deabc8b80cd1ba8ff  .agents/skills/exploit-proof/assets/ledger-template.md
@@ -275,12 +275,12 @@ d99b22496140c763d42955698d756218e38eb132ff23a54c43390140ad67c1b6  .agents/skills
 681ee5e43f7a54b5c2a4096122dafe603d90b8e6ca68a632c67f7e55738bb1ec  .agents/skills/exploit-proof/references/ecosystems.json
 6232029fda396bc0ee7a3de5aad70ea7dfbc30e1522dabc83881a27e5b803fae  .agents/skills/exploit-proof/schema/dependencies.schema.json
 24fe96af4b44207183a9d39173ce70fac02034502874d26ffd734857e2062936  .agents/skills/exploit-proof/schema/findings.schema.json
-b1fb08b12a104051f07826bc4fac7191c80d9687706973cbae224695d37ed47c  .agents/skills/exploit-proof/scripts/diff-manifests.mjs
+b284b9855560505d063acd8ec7a60a6acff7ba6bcc22c5fdb83ff6a557cdebaf  .agents/skills/exploit-proof/scripts/diff-manifests.mjs
 c390fd72f3028170e83e96bdae72d373bbfcf36f406f09d13c1d64b10ab7d96f  .agents/skills/exploit-proof/scripts/ecosystems.mjs
 d423bd8cb7e7d179e3c4d9f40b69f741430e92fdf8eb12e2f0cfa00d0d749116  .agents/skills/exploit-proof/scripts/validate-dependencies.mjs
 5cedcd17849a17fb96ff6a64ce4b0e8e62e7b0fb1073a0c58e37f17d1ed9a32a  .agents/skills/exploit-proof/scripts/validate-findings.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/exploit-proof/scripts/winprog.mjs
-f3fc07c9b7bd4df80cb5a99d5b1af65be206fe9069b847ddaee16bbd1faaf233  .agents/skills/intent-grill/SKILL.md
+9e7626445f439f19ba1ad1d1fdf88cfe59fa62558a0c735b5c1fd23f55c87227  .agents/skills/intent-grill/SKILL.md
 c4260e0d438cbce23efcf5a87e9152596bc39d982fbd43f33ede7770eff15543  .agents/skills/intent-grill/agents/openai.yaml
 631401b5eaea33bd21bded53ec68a3bf5de0fe856d3d5e15cbae90202e821f01  .agents/skills/intent-grill/assets/INTENT.template.md
 3789680989ef4f875da4dc2623927b9e22224c09c71ef856b991e448af89e42e  .agents/skills/intent-grill/references/INTENT-FORMAT.md
@@ -288,12 +288,12 @@ c4260e0d438cbce23efcf5a87e9152596bc39d982fbd43f33ede7770eff15543  .agents/skills
 c61c56f3d5fcec46d3ac13855d6e3223f145d66588d60fbd92ba956e2abdd363  .agents/skills/intent-grill/references/TREE.md
 0c073f4ae0258572351ae3296dffe6664758c7dbdf03767d927de9589b9a6a40  .agents/skills/intent-grill/schema/intent.schema.json
 04254446327161719b23112a3ea76715a581a31d24ed0973eff5aa9cd3e4e2de  .agents/skills/intent-grill/scripts/validate-intent.mjs
-57ea82e44410f7bf29ef1564c5e8c7fd6188e03be6580500ad93e3b200662106  .agents/skills/llm-wiki/SKILL.md
+a1db604daef63685e601696c510d79c670afde59d2f38e2e8e01b06a7cb4c38f  .agents/skills/llm-wiki/SKILL.md
 262b531596ab96a959608ac9c8254b54c12bbae506b0b4fa90ebfe7d60af56a3  .agents/skills/llm-wiki/agents/openai.yaml
 787aaaef6d6629728bc4171b1493fdebf249e196e658dd8ae794b94842d0708a  .agents/skills/llm-wiki/assets/CLAUDE.template.md
 27775d24c2b47620d438d155ce28fb597d94259ca629da0ccb51cd8ac57c7015  .agents/skills/llm-wiki/assets/KNOWLEDGE-PIPELINE.template.md
 2d615a5160b512ed54313bdbe3536e263f3ea3f86a9dc81fb8b6abed97ebd085  .agents/skills/llm-wiki/scripts/validate-wiki.mjs
-6c7042f64a7f890d59ce29d110f16882cceddaa6583b6d8c622b5e9b292df81b  .agents/skills/performance-proof/SKILL.md
+6d54d88970def176dd7c243dbcbcdc0bc8bdd423ffe7ace25e7f9168a34e0d7f  .agents/skills/performance-proof/SKILL.md
 14ec4d579dd197b2447a6c3b3c6cf78353836ed40c0a94b3c3b080dc60084bb4  .agents/skills/performance-proof/agents/openai.yaml
 040ea55f6fa9799750aaabd55b9e5debe6705f5fb29133a36d572b81214ac045  .agents/skills/performance-proof/assets/ledger-template.md
 72341d4ea4b1c488238f11ff2c1bcbd0b38774b6c8447945a147f958a80a6e18  .agents/skills/performance-proof/references/DECISION.md
@@ -306,14 +306,14 @@ c390fd72f3028170e83e96bdae72d373bbfcf36f406f09d13c1d64b10ab7d96f  .agents/skills
 f9a00279e199a18a3d2ade011ea005708c6f3349d73debac5fe1370d3c11c79b  .agents/skills/performance-proof/scripts/run-bench.mjs
 9d80bcab64c3a664b383fdf795548b762b0404bacc802450c010b54a1c56edea  .agents/skills/performance-proof/scripts/validate-performance.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/performance-proof/scripts/winprog.mjs
-b442ed4218322c4bbdf88ffe49fa18e0f211c5fd993fb08283cb583a4f188b2d  .agents/skills/plan-contract/SKILL.md
+1fd80ff7d5def1fa4150789a96f204659c5471a48854678cf46c6cde659945c2  .agents/skills/plan-contract/SKILL.md
 faaa4ef9b48e4c11a264173562b46752e3eea59034e359b4ae5465dfa1ef4127  .agents/skills/plan-contract/agents/openai.yaml
 8bf9d2c342d6583b0e635e0d0af6e9e83a56fc64ee89c47d89e0a244aa018746  .agents/skills/plan-contract/assets/PLAN.template.md
 fc39eaad06c3ed428cdd50dd0fbdc5ccbc79be354735eb26054f8db251a809cd  .agents/skills/plan-contract/references/SCOPE.md
 807f4756083d16a2970f9f026492d5ce26b338c689b54a0b8d2365558564a296  .agents/skills/plan-contract/references/SECTIONS.md
 95168e0df64915bfcf89d2af7cb19dbd8905a83855193e32ce42b4ac65ce3375  .agents/skills/plan-contract/schema/plan.schema.json
 a2ecf4cd164d8f7afcbcc12fad1c9b32be9b869df2f8b5593f9dc8b86900b5da  .agents/skills/plan-contract/scripts/validate-plan.mjs
-ee84a8e6bac13c70b983d6d60ecb93b6dabf8274ddd46c168ee80609c1e55cb5  .agents/skills/product-assess/SKILL.md
+a2fd25dd4a274f8333643418f28027804806a302ec24a8ecb9873a54f206efdb  .agents/skills/product-assess/SKILL.md
 bc7a92081eec426dce6fa03a4af9eb925d644c40f88a66bc1787483d558361d0  .agents/skills/product-assess/agents/openai.yaml
 d3351b0bbf1fca2ca56393e22fc797d6573bc33a4c93c872f24d891e314c57fe  .agents/skills/product-assess/assets/ASSUMPTIONS.template.md
 3a94bfa20b33c8d08147da495be8f9379c8d390b1420717fd2423b72af0b2ca2  .agents/skills/product-assess/assets/DECISION.template.md
@@ -332,7 +332,7 @@ ca1530618ad267ce8343005b8be3c719f775be3b4bc054b34883bde7e63ed876  .agents/skills
 5f8470795dda40a64cceaf0eb0201bf7d07cf264ebd278a1554bbe304fba09d5  .agents/skills/product-assess/scripts/lib.mjs
 0da17751ab644b003d95b28c08da18e907bf3ea32cfd8942cea5802821d5b31b  .agents/skills/product-assess/scripts/validate-product-claims.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/product-assess/scripts/winprog.mjs
-34eda0ca83ee6177734f1dc4db766928f553e6e72273170f4815cb4539ae6c5c  .agents/skills/product-discovery/SKILL.md
+85935fd4bd2d449776a135f0963710f40bda2998b82db8d276f9a20fb6b1e753  .agents/skills/product-discovery/SKILL.md
 f67065df3fdbf431e9b4142e9235bd1cd7bf3dc86b56f758199aada36d3be5b9  .agents/skills/product-discovery/agents/openai.yaml
 600b5e3f8332761f7f57368cb0e4d1c15c9a2f803b6cba86e00e0aeaa28d683f  .agents/skills/product-discovery/assets/COMPETITORS.template.md
 1a4ce1748005b73b1d39c96890be56e536b39845482b0d4ed963bc3fe9f04553  .agents/skills/product-discovery/assets/FRAME.template.md
@@ -342,18 +342,18 @@ fab2ad40f79371ff4d14b4bc0e51ff090ba2fa77671596df9470495cbeac0840  .agents/skills
 ba48c0a1422a096c97ed511f69e32ce39ea17c0e09f01f293d4e790d531169cc  .agents/skills/product-discovery/references/DISCOVERY-FORMAT.md
 abe5c7c009a0560452c19392a36081104f3c638574eb9862e8e6818539c7c2c7  .agents/skills/product-discovery/references/EVIDENCE.md
 18e3a248ea694805465b82760f8d7599ae0f18a7d65943e30b37f8c90ada744d  .agents/skills/product-discovery/references/EXAMPLES.md
-0e709a1da4b2183096c0c81d208e99e920bb09adf9177a5f16d236c19d61c555  .agents/skills/product-discovery/references/INTERVIEW-GUIDE.md
+772a25735104a22582948238063200da959fefd3c8c922d9fd2e85455db6c220  .agents/skills/product-discovery/references/INTERVIEW-GUIDE.md
 91c73b1d8bdf851e9dfb1451b477a33c3262ad27189d9f54528cc552ae7aee1d  .agents/skills/product-discovery/references/QUALITY-BAR.md
 e50ad7dc1cb890f25758d63a2718449d9de4bb1b8532d5a483c35dc3d2bf9a4f  .agents/skills/product-discovery/references/RESEARCH-METHOD.md
 d5915f6f75db799a18acf70ad39995f9c5c7b90b44edff4b1e08ad97a0b22099  .agents/skills/product-discovery/scripts/check-competitors.mjs
 f415d310ddf12f244eb292a4b01428904c471452e7930331d5476f84e78b3bf1  .agents/skills/product-discovery/scripts/check-insights.mjs
 fb8567d5a8bf869564a261da2152a75b5049a24500abf0705da4f49862e6d612  .agents/skills/product-discovery/scripts/check-opportunities.mjs
-c20e9b4b336ced1a10dbaa3bc9abd2fae553c738636fb7ab58e930989e287486  .agents/skills/product-discovery/scripts/check-quotes.mjs
+a170c369ead4e12d78493535665c16a7990d1bdd30f98dab0ac40699fb4fa338  .agents/skills/product-discovery/scripts/check-quotes.mjs
 1b1d2da9b2433690bf8bb25b734d81911abbb44b2459f579221a0bab9437c37d  .agents/skills/product-discovery/scripts/check-research.mjs
 32d32620e1a6fcd3a98922b6487d1cb5f61802fa87aac964090886b201c4c261  .agents/skills/product-discovery/scripts/lib.mjs
 0da17751ab644b003d95b28c08da18e907bf3ea32cfd8942cea5802821d5b31b  .agents/skills/product-discovery/scripts/validate-product-claims.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/product-discovery/scripts/winprog.mjs
-5e6e94ce768ec7e35e6146d88a16ba389792650e0199eb38c1088639e5ebfc3b  .agents/skills/product-spec/SKILL.md
+c7d678bbcba46e10ac1f38a2f1b219c143bbf28667433f893788757d970a168a  .agents/skills/product-spec/SKILL.md
 d811a547cbc61ec0f70f7436243c2d3d44b559643781d5dc056307ee63941b94  .agents/skills/product-spec/agents/openai.yaml
 a2cb76b352f6bb31154c1a988a1290565a4ead354ac76891a93a93c16e79c595  .agents/skills/product-spec/assets/PRD.template.md
 b90118f7f3c790f1504c8e04e5918439d0e111c3a8c7578fdc2f9aaef59bed54  .agents/skills/product-spec/assets/REVIEW.template.md
@@ -372,7 +372,7 @@ eca52549d41984c10230d494f274be6a95b5e754440839a4a9bfcce89da2fdbd  .agents/skills
 fd48ec023abd357cf0aad88c435e7d1eb42e78bade4e40a7e0fb5f813a74b23e  .agents/skills/product-spec/scripts/trace.mjs
 0da17751ab644b003d95b28c08da18e907bf3ea32cfd8942cea5802821d5b31b  .agents/skills/product-spec/scripts/validate-product-claims.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/product-spec/scripts/winprog.mjs
-fcc86418a3560bbafd59149754db8d0e8ce850c44b34031c3e16108d3eb75244  .agents/skills/proof-review/SKILL.md
+79b7ad519da18dde372cee7e09febfce277fa234eeccf1c171813f98002125c2  .agents/skills/proof-review/SKILL.md
 33887597b1e6150f9f5bbbcbfb72c3386e49ceaef3a5c748db1c0f1060e15fe4  .agents/skills/proof-review/agents/openai.yaml
 b697de4ea50a5f5eec345f37760a1ad6fd190854e16b9020337397917f54dd3e  .agents/skills/proof-review/assets/ledger-template.md
 74d4eec3741acfc8eb373407389e737411ccdee104d4d319193ae692886a60e1  .agents/skills/proof-review/references/BUGS.md
@@ -380,16 +380,16 @@ b697de4ea50a5f5eec345f37760a1ad6fd190854e16b9020337397917f54dd3e  .agents/skills
 9dab14f00273d7e969cf5afabccb992c568b7e226ba7ac864a5cd582e458a6d7  .agents/skills/proof-review/references/INTENT.md
 0ef5d4f93390044726a6fbc636633a52822a00404665f0cca50b29cf83f5ab2b  .agents/skills/proof-review/references/PLAN-CHECK.md
 c4b99f6655e5997307562f960280d6f9069bcc698f159b8073ed0ea702bb075c  .agents/skills/proof-review/references/PROBE.md
-3f1f4184ad49bd2b06b4cbb72e66e26b5950934054efbb0e8b5a7528462c1752  .agents/skills/proof-review/references/REPORTING.md
+bdd833e48364bb437835ba0bb857c3f87b4deecfa9312563ba0f5a2a533891f4  .agents/skills/proof-review/references/REPORTING.md
 000cb13f5bb5e881637dfe4c03f6bf2e6bcb1c697215047a245c8fb9c0a769b7  .agents/skills/proof-review/references/RULES.md
-e0eb94fea4494aa975e2c99bc525bab22ebfa6735d5d36a96004cac4dca700a0  .agents/skills/proof-review/references/TARGET.md
+04558f81df1f8e8406a8790b815699848d734e255f542deab9404151a72f6ca1  .agents/skills/proof-review/references/TARGET.md
 12932e2d53910dd023f5b47bd56b43c74c78c89d03236251bfc98f3706bff794  .agents/skills/proof-review/schema/findings.schema.json
-08f81d4491439e1d22ff0b888b51dea0f9a56306b071e39904c40882b746fdcb  .agents/skills/proof-review/scripts/check-config.mjs
+cf211d6c9ced4dbb15868fbd7e3f5cd28d184ecf82b5d9a383cbd30b8cf016a4  .agents/skills/proof-review/scripts/check-config.mjs
 647bdca97ad7233f9d3c1eeb497c59161ff1ee4c961bab1c75924eb1e5c01ce6  .agents/skills/proof-review/scripts/gate.mjs
 883f5648ed680f2993bfacf23e07aed4aaedd709b09f057321d4c1cd539529c7  .agents/skills/proof-review/scripts/validate-config.mjs
 2a6fbced8f6be75e1e798fe238cf639a78f15c71d617b27a3cbee3d03c9f83d0  .agents/skills/proof-review/scripts/validate-findings.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/proof-review/scripts/winprog.mjs
-3762ad9bb18482928c64ba8ea69283a0bc637f93a155940d0c61d441b89653f5  .agents/skills/proofline-lead/SKILL.md
+b97e28850c4331c848d2658e93398a24ab9648e2bf6e8ff48789353a8e292a29  .agents/skills/proofline-lead/SKILL.md
 59b6cdd61c99f5c18e6cc178780bf2247c668a7985cf0c2ee5559c6641bdedae  .agents/skills/proofline-lead/agents/openai.yaml
 a9774ea0778d397951c7568ea287e2cc166682663358a48717bb78446de58d65  .agents/skills/proofline-lead/assets/COMPLETION_REPORT.md
 283e3638d8f4afa9c9818d1291d0b0aaf2c5b0bf231ac84fabb8edefb5adb16e  .agents/skills/proofline-lead/references/DELIVERY.md
@@ -401,8 +401,8 @@ e730107df15ca798cec08926511e82028550ebbeed0d5b7c0f3ca92a0083df4d  .agents/skills
 037e538db337faf0341bf68b6a6d4f6712aa5b81cd6fb5449690cae85e527cec  .agents/skills/proofline-lead/references/REPORT.md
 98c4055c0372017e2cbc35651dd17b4d8563c7fc9dbb08f06ed43c3b75676198  .agents/skills/proofline-lead/schema/result-summary.schema.json
 fb566910f6915cd21aa6322702bdf44919e0da6eba1df62e5a411b11e5c174ef  .agents/skills/proofline-lead/scripts/check-result.mjs
-8915e8222f41465426d42743cd25acb403c94a42e7d7391371b32639f0c7d542  .agents/skills/proofline/SKILL.md
-9a20c55ca41aad0955a79b55feaae76abfbeeaa2d4bee1d38a5946bd89f6ff5a  .agents/skills/qa-plan/SKILL.md
+494d1d6a764bac88d7f19c141e70069205154a5f2bcdd47fad45697271b102d1  .agents/skills/proofline/SKILL.md
+d1c8f3aa3815a21526e9d24916dc86fe1297631c83cebeafd0ae51a0e222130b  .agents/skills/qa-plan/SKILL.md
 727a03fbff981035892376ddd6eac00d2015aa069fe2f46a4b4fe5adf631d208  .agents/skills/qa-plan/agents/openai.yaml
 c7995571eb391304974a73aa49f1d212ea1f489487aff6c8a41b816dc4975ca7  .agents/skills/qa-plan/assets/QA_PLAN.template.md
 c587ac7c0e99b8f385af2305aa6f31875b040c08a5f30e2b9ac18c3b7be5f6e6  .agents/skills/qa-plan/assets/QA_REPORT.template.md
@@ -411,7 +411,7 @@ c587ac7c0e99b8f385af2305aa6f31875b040c08a5f30e2b9ac18c3b7be5f6e6  .agents/skills
 279c3d1af19a9186a61954696ec4c64924a8f9ced5f5877242f230cd71aa755c  .agents/skills/qa-plan/references/SCENARIOS.md
 6541baf6f193d77e111be30d80ed0a6c18c6dc6e66ac90d0d337fd40d07b5a38  .agents/skills/qa-plan/schema/qa-validation.schema.json
 59967b85e6b4d38415a642486c0485efa0c4fb55402d39eb11e3d76b53e0d06c  .agents/skills/qa-plan/scripts/validate-qa.mjs
-be3157062847bee6fc29847d405e79f8bddaa57f12105fb27e4f99eb7880dc45  .agents/skills/system-design/SKILL.md
+c5eaab82acc42c3682b213f21248ca93961a196f4dc4f3cddabdb3aebde04edb  .agents/skills/system-design/SKILL.md
 45f9072d4ff1c4ac04875360cb3e0500093d90b7ff7df76b6396cd8b08dde920  .agents/skills/system-design/agents/openai.yaml
 d089f9a742f0bf1490f0db7b47742904ac115af288424253ebb337c6900fa1f8  .agents/skills/system-design/assets/ARCHITECTURE.template.md
 6517acaf7cc52b1f903bffbb8e2c0926b1e1455e8776502501e5fe68432d7c1d  .agents/skills/system-design/assets/ledger-template.md
@@ -419,7 +419,7 @@ d089f9a742f0bf1490f0db7b47742904ac115af288424253ebb337c6900fa1f8  .agents/skills
 2e9d5d2f979bfa494198f1cfb9d88a92468450cb7d6030ad5244327a550c0aee  .agents/skills/system-design/references/METHOD.md
 65f8f9966aa1731945b85057f3e3c00101062bf179906edca00ea6d34ce3031e  .agents/skills/system-design/schema/architecture.schema.json
 4cc92b36a220ce863171001a5efc96d8fddd051a2b67a108923992d3c4334880  .agents/skills/system-design/scripts/validate-architecture.mjs
-3fa61d5aa8490cbf87ce150f0e79ff6614265d42ebd507e723e533f79d95560e  .agents/skills/task-author/SKILL.md
+db18b0655edb4d27ba76f80c7e076d11cc51b09fdd3cb4ecdf516d0804f11b49  .agents/skills/task-author/SKILL.md
 d721f9b9e5f41bc3f157fb06963c19d0d2eb25e9947cf0c6605ffd180ca1829a  .agents/skills/task-author/agents/openai.yaml
 dd629db5f614bcd87c3222d4b530cd397760e1053a4c4e942dfac399c42326b9  .agents/skills/task-author/assets/ledger-template.md
 82c565f79bef40c2c263c7273afcf80d1978025887b5567e2bd674d3657cd77f  .agents/skills/task-author/assets/templates/github.md
@@ -433,7 +433,7 @@ a3bd8b1e9af322978737c656ffc1b66eefa9900b982e2cccddceadbf758d87ef  .agents/skills
 fac54ca83b4dd2be3753dae0acf3aaa4e27fe2c8ed6c51a87920d720e4d05aee  .agents/skills/task-author/schema/task-validation.schema.json
 d1e790dc7eac4a5465d5e4cfd9cf71e53cca1ce5a7a5dc634eea453641870428  .agents/skills/task-author/scripts/link-origin.mjs
 41de2bbb1bc7c2fb47e389b544d6510e8f1b430affa09874c8f28228680cdace  .agents/skills/task-author/scripts/validate-task.mjs
-ffdbaa9080b387d3eb2b5229a3431243306cb9eef0e9bec8f921a673cf865214  .agents/skills/tdd-proof/SKILL.md
+07e5218927a6d26c6b6c7684d1b9c294161d8ebefd30be50ac97981d3d720e32  .agents/skills/tdd-proof/SKILL.md
 01ae8a85a047ff510386a6f82d9f770b5710c445351df35d51f6c8af18ec9085  .agents/skills/tdd-proof/agents/openai.yaml
 315375115e72f86f7c91cdc822e825bbe1e50595f90fb6eaf275f84cceacc77f  .agents/skills/tdd-proof/assets/ledger-template.md
 c5f8ac5765e221b069dd3b297218f4619a973e1ff63de606d16577bd2a193f1a  .agents/skills/tdd-proof/references/FAST.md
@@ -444,7 +444,7 @@ c5f8ac5765e221b069dd3b297218f4619a973e1ff63de606d16577bd2a193f1a  .agents/skills
 632e307f626131175015d5f793a52d2d320255ab68f69ee215307ebfc3908a3f  .agents/skills/tdd-proof/scripts/classify-red.mjs
 c390fd72f3028170e83e96bdae72d373bbfcf36f406f09d13c1d64b10ab7d96f  .agents/skills/tdd-proof/scripts/ecosystems.mjs
 8155c723ef2971171d1af8833b41cafeb15bb1d562fe5db204f3d778c216b0fb  .agents/skills/tdd-proof/scripts/validate-tdd.mjs
-c44284c0c42d4d573e25aeead3dedb780829adcf42eaf85f6e67d623c3447f98  .agents/skills/test-trust/SKILL.md
+24d1abd080323fb3dd1ee829ee7c7b21d6bf562f944ab2da57c1441fe8a60363  .agents/skills/test-trust/SKILL.md
 7599e763bf6f2400d2301b8483e80b287ff013288122d8a3a85d2486a1948cb2  .agents/skills/test-trust/agents/openai.yaml
 9909fcb7faba57599358d4bf3ce69bdd77a5ef29455d318ff55bb07e9894187a  .agents/skills/test-trust/assets/ledger-template.md
 f9ad56466e2b54e6b0a7b0d5217d3974ba9c69dea5b5d44e32d146879eb8405c  .agents/skills/test-trust/references/DIFF.md
@@ -457,7 +457,7 @@ bdf51e07d107a2a09c9cc44c4f273bccf21487a333afc86e2a840dca84be1bac  .agents/skills
 c6071ca9a6066078b7819d3ed5bd3ae29780cd0ae4d853d7298fb410be50180e  .agents/skills/test-trust/schema/findings.schema.json
 2ba53af2f241ba2a242e35eb38f4380f24de6b00c2f20d917399082d09b2056f  .agents/skills/test-trust/scripts/gate.mjs
 721b454c9cfd8c1818b1e632b2e02b108c85aec78cfe3557e08e406df775f366  .agents/skills/test-trust/scripts/validate-findings.mjs
-8447e918c3378e2ec905e80e95b4d2888d30dae365a654c01e2017974c2c819d  .agents/skills/ui-design/SKILL.md
+fecb2b1e6f5425e9a622b3ab29799f6035434df60a52406cfd72a545e713522f  .agents/skills/ui-design/SKILL.md
 4833c9988816901d5f6cc5d9c235349538ba51ab17851231534dc14c947b801d  .agents/skills/ui-design/agents/openai.yaml
 ab8a83a5e0f1cee0d4c73cd6a82919a318b7e6b50c43d09bfa58eb606f1c857e  .agents/skills/ui-design/assets/DESIGN.template.md
 831b8389b0c348ad80b81c23e9c67f42ce3ce01bf06fa01fd28f9d8fde3549e7  .agents/skills/ui-design/assets/IMAGES.template.md
@@ -499,7 +499,7 @@ f03945a3c8dd5838eb312b1094365839b03d3574030da4e0aa2d1aa5b5622248  .agents/skills
 914d38fc3a617383fc756407144cead9cd2beb009fd675d9b1262e754299d325  .agents/skills/ui-design/scripts/scope-check.mjs
 5d61ab346ccfef476cad19bd49ac8e159919a6d9e71c2f7abbc592f6d2800755  .agents/skills/ui-design/scripts/validate-ui.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/ui-design/scripts/winprog.mjs
-79f2dd66d47031a98d46f665333991c0a8f78c98ff32d65e401ab946c5e17ddb  .agents/skills/verify-proof/SKILL.md
+9f00fabf7c698f289cafcc22d18399aea91559942e344ddd0620d3e2e6191b8c  .agents/skills/verify-proof/SKILL.md
 69699dbfaa3114d055151ad4e3eb60008446e849153b1ee44a831f4cad2ce4e5  .agents/skills/verify-proof/agents/openai.yaml
 cb87eb6f5de2fc6d5e31bbda415ff1403ad2693a2afaeaffd4d9cd778d143363  .agents/skills/verify-proof/assets/VERIFY.template.md
 0c7cdeeaf95353477f597988f3c6ada43d1d8dbbf8fbb49469167c5b51bec252  .agents/skills/verify-proof/assets/ledger-template.md
@@ -512,7 +512,7 @@ c390fd72f3028170e83e96bdae72d373bbfcf36f406f09d13c1d64b10ab7d96f  .agents/skills
 113e23c2cc68fa5a58c98914ea9ecc156766c71ee2111e86dcebf0cb42638242  .agents/skills/verify-proof/scripts/runtime-versions.mjs
 9b93c8ba2d9e24ea2e15f528e9edcaf31b0bf93889eed461906790b6a3c2a117  .agents/skills/verify-proof/scripts/validate-verify.mjs
 40e8cf8f8e353028fadb42037a0aa60b509489ab3e865b4697d310a9fe78c30d  .agents/skills/verify-proof/scripts/winprog.mjs
-0bb919c74750ab32f76d553b51d3b610f922db06fbbf1ff0e3956c8ebbee446f  .agents/skills/visual-proof/SKILL.md
+cc7bcfd733a6bb881aaced77aa5db6ea50972a18803b4f1197052e7a04a7d368  .agents/skills/visual-proof/SKILL.md
 b1ebe9643c88639f5a344f32de9d915014e7ed5a31683662597b74d9f865baca  .agents/skills/visual-proof/agents/openai.yaml
 8e3413338a4525cb7e64b184c6add50d27cb28980dc00426e71925ac2231394e  .agents/skills/visual-proof/assets/OUTPUT.template.md
 8018d3abb9157e52526686d81fbe08660cb18cc022fd0a908e1daaed9e585f4d  .agents/skills/visual-proof/assets/ledger-template.md
@@ -562,7 +562,7 @@ d8ccce8aa8729fbf4f181c6933eb2a72af6b109cad3501e040a89910a1c8436e  .claude/agents
 475aaa3dd305ade77236d82b90ca3931cce4525b8fa9789d9524d32cdb5e7932  .claude/agents/proofline-security-reviewer.md
 b3b75d9d790c897a19597ebc233b71b2624148757755a31b06d16974d97e079f  .claude/agents/proofline-task-author.md
 005a08199a40cc5e1a6c4aea4cd16690b038e16f811fecf43d218dc3e4c4f2a8  .claude/agents/proofline-verifier.md
-8915e8222f41465426d42743cd25acb403c94a42e7d7391371b32639f0c7d542  .claude/skills/proofline/SKILL.md
+494d1d6a764bac88d7f19c141e70069205154a5f2bcdd47fad45697271b102d1  .claude/skills/proofline/SKILL.md
 fa78ddb703ddab062a640fe8ef15abf0bf6cc11187ee5a075f58855391010ca6  .codex/agents/proofline-architect.toml
 7391ae1a4f3c128dbcdd5807e1b243a7932c3bbb6a96a5079eda38cbcb358d0c  .codex/agents/proofline-data-architect.toml
 57fbe9e772c3ee2d0fe6d611d423658fae52d221be1f25793a6e93bad09bf834  .codex/agents/proofline-designer.toml
