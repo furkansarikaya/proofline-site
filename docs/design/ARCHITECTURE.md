@@ -40,7 +40,7 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | C16 | Transform, sanitize, link map (`scripts/lib/transform.mjs`) | component | `scripts` | new | frontmatter, remark-parse + remark-gfm, HTML as text, comments dropped, links mapped, HTML + `.md` + manifest |
 | C17 | Pin facts extractor (`scripts/lib/pin-facts.mjs`) | component | `scripts` | new | proof.md figures and anchor; README Status sentences and Install-range commands; fails when missing |
 | C18 | Translation index (`src/lib/translations`) | component | `src` | new | pairs, hreflang, sitemap alternates, switcher, staleness |
-| C19 | Pages, layouts, endpoints | component | `src` | new | address table, titles, footer, indexing switch; zero script on four site pages |
+| C19 | Pages, layouts, endpoints | component | `src` | new | address table, titles, footer, indexing switch; one controls script (<= 2048 B) on four site pages, no other |
 | C20 | Search index step | component | `package.json` | new | `pagefind --site dist` |
 | C21 | Dist checker (`scripts/check-dist.mjs`) | component | `scripts` | new | static checks over `dist/` |
 | C22 | Local static server (`scripts/serve-dist.mjs`) | component | `scripts` | new | vercel.json semantics for browser checks |
@@ -161,7 +161,7 @@ Also answered: Q-1 (ADR 0007: grace 10 days; issues for failure, stale status an
 
 - AC-41 (FR-10): The site is built -> the number of skill pages equals the number of `skills/*/SKILL.md` entries of `sync/lock.json`, and the number of concept pages the number of `docs/concepts/*.md` entries (28 and 13 at the candidate pin); the counts are read from the lock, not typed.
 - AC-42 (NFR-1): The header set of `vercel.json` and every response of the local server hold 0 `Set-Cookie` headers; `dist/` holds 0 uses of `document.cookie` and 0 resource references to a host other than proofline.technology; the browser checks record 0 CSP violations.
-- AC-43 (NFR-5): Lighthouse CI with the default mobile profile, median of 5 runs -> LCP <= 2500 ms and CLS <= 0.1 on the home, get-started, trust and Claude Code and Codex pages in both languages and on one synced guide; script resources count 0 and size 0 on those four pages in both languages.
+- AC-43 (NFR-5): Lighthouse CI with the default mobile profile, median of 5 runs -> LCP <= 2500 ms and CLS <= 0.1 on the home, get-started, trust and Claude Code and Codex pages in both languages and on one synced guide; script resources count exactly 1 (`/assets/controls.js`, <= 2048 bytes uncompressed, no inline script) on those four pages in both languages; with the file blocked the page follows the system theme and the command stays selectable.
 - AC-44 (NFR-7): A synced document holds `<script>alert(1)</script>`, `<img src=x onerror=alert(1)>` and `[x](javascript:alert(1))` -> its built page holds 0 `script`, `iframe`, `object`, `embed` or `style` elements from it, 0 `on*` attributes and 0 `javascript:` URLs, and a placeholder such as `<slug>` in prose shows as visible text.
 - AC-45 (NFR-8): `scripts/check-workflows.mjs` passes: every workflow has a top-level `permissions` block that is not `write-all`; no secret other than `TRAFFIC_TOKEN`, and that one only in `snapshot.yml`; `snapshot.yml` has only `schedule` and `workflow_dispatch` triggers.
 - AC-46 (indexing): A build without `VERCEL_ENV=production` and without `SITE_INDEXABLE=1` -> every page carries `noindex, nofollow`, `robots.txt` is `Disallow: /`, no `sitemap.xml` exists and the log says `indexing: blocked (<reason>)`; a production build has none of these, has the sitemap, and logs `indexing: allowed`.
@@ -218,7 +218,7 @@ Waiting condition of the launch (not a task here): the owner changes the README 
 - Lock scope: the build also needs `README.md` (FR-4, AC-8, AC-9); the lock lists it as a read-only input. The tarball bytes are not hashed, the contents are.
 - CSP: without `'wasm-unsafe-eval'` Pagefind's WebAssembly search is expected to fail (inferred); added in ADR 0006.
 - Dependencies: the synced set has GFM tables and YAML frontmatter, so remark-gfm (and remark-rehype, rehype-stringify) are needed; their versions are not among the verified pins.
-- "No `<script>` on site-written pages" conflicts with JSON-LD and with the Pagefind script on the `/docs/` indexes (site-written per FR-9); the checker exempts those two cases explicitly.
+- "No `<script>` on site-written pages" conflicts with JSON-LD and with the Pagefind script on the `/docs/` indexes (site-written per FR-9); the checker exempts those two cases explicitly. The four site pages carry one more allowed script, the controls script (ADR 0006, amendment of 2026-11-20): one same-origin file of at most 2048 bytes, synchronous in `<head>`, no inline body.
 - Codex sentence on Turkish pages: AC-12 exempts only text quoted from a synced page; README is not synced, so the Turkish pages carry a hand translation under the build guard.
 - Link counts 289/43/13 are link occurrences; distinct targets per file are 109/40/13.
 - README has two Version lines in Status (31-32) as well as in Versioning and license (120-121).

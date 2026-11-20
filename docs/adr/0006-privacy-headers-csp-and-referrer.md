@@ -16,10 +16,19 @@ NFR-1 forbids cookies, banners and counting scripts; NFR-7 forbids active HTML f
    - `Referrer-Policy: strict-origin-when-cross-origin`
    - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
    - for `/(.*)\.md`: `Content-Type: text/markdown; charset=utf-8`; for `/llms.txt`: `Content-Type: text/plain; charset=utf-8`.
-   HSTS is not duplicated if the launch checklist shows Vercel sends it; otherwise it is added. Astro `build.inlineStylesheets: 'never'`; no `style=` attribute and no inline `<script>` in site pages, except the JSON-LD data block of the home pages (`type="application/ld+json"`, not executed).
+   HSTS is not duplicated if the launch checklist shows Vercel sends it; otherwise it is added. Astro `build.inlineStylesheets: 'never'`; no `style=` attribute and no inline `<script>` in site pages, except the JSON-LD data block of the home pages (`type="application/ld+json"`, not executed); the one allowed script file is the controls script of the amendment below.
 3. Referrer: links to `https://github.com/furkansarikaya/proofline` carry no `rel="noreferrer"` and the page policy is not `no-referrer`, so the browser sends the origin `https://proofline.technology` (M-3). A browser that sends no referrer is invisible to M-3; the PRD states it.
 4. Q-3: no privacy, cookie or terms pages. Every page has one footer line: no cookies and no analytics scripts; the host keeps ordinary request logs; the content is MIT licensed, with a link to `LICENSE` of the proofline repository at the pinned commit. Synced pages also show their source path and the pinned commit or tag (FR-12). The decision "one footer line, no legal pages" is made here; the exact wording is open and is decided together with the promotional design step (`design ui`), by the product owner's choice.
 5. `scripts/serve-dist.mjs` serves `dist/` with the semantics and headers of vercel.json (trailing-slash 308, 404 page with status 404, the headers above), so Playwright and Lighthouse see the real CSP; the browser checks listen for `securitypolicyviolation` and fail on any.
+
+## Amendment 2026-11-20: one controls script on the four site pages
+
+The promotional design (`docs/design/DESIGN.md`, header controls) needs a theme button that remembers the choice and a copy button for the install command. The product owner decided (PRD N-5) to allow one same-origin script file `/assets/controls.js`, at most 2048 bytes uncompressed, loaded synchronously in `<head>` (no `async` or `defer`, so the saved theme applies before first paint), with no inline script body.
+
+- The script only reads and writes `localStorage` key `theme`, sets `data-theme` on `<html>`, updates the theme button's accessible name, and runs the copy button. It reads no cookie, makes no request, and counts nothing (NFR-1).
+- CSP is unchanged: `script-src 'self'` already allows a same-origin file, and inline scripts stay forbidden.
+- Without the script: the theme follows `prefers-color-scheme` by CSS, the theme and copy buttons are hidden (they appear only after the script adds the `js` class), the language link and every other control work, and the command can be selected by hand.
+- CI (ADR 0008) fails when a site page has another script, an inline script body, an `async` or `defer` attribute on this one, or when the file is larger than 2048 bytes.
 
 ## Alternatives considered
 

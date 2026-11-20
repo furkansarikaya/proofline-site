@@ -5,7 +5,7 @@ Date: 2026-11-19
 
 ## Context
 
-The site is static, needs no server and runs on free hosting (NFR-2). The four site-written pages load JavaScript only when a feature needs it (NFR-5), so the framework must be able to ship pages with zero script. Synced Markdown must be rendered with raw HTML made inert (NFR-7), independent of how the framework processes Markdown. Two languages with different slugs (FR-17) and generated index pages (FR-9) are needed. The user asked for Astro if suitable ("önceki site Astro'ydu; uygunsa Astro"). The repository is greenfield: `git ls-files` lists only `.agents/`, `.claude/`, `.codex/`, `docs/`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`.
+The site is static, needs no server and runs on free hosting (NFR-2). The four site-written pages load JavaScript only when a feature needs it (NFR-5), so the framework must be able to ship pages with zero script of its own (the four site pages then carry one small controls script, ADR 0006 amendment). Synced Markdown must be rendered with raw HTML made inert (NFR-7), independent of how the framework processes Markdown. Two languages with different slugs (FR-17) and generated index pages (FR-9) are needed. The user asked for Astro if suitable ("önceki site Astro'ydu; uygunsa Astro"). The repository is greenfield: `git ls-files` lists only `.agents/`, `.claude/`, `.codex/`, `docs/`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`.
 
 ## Decision
 
