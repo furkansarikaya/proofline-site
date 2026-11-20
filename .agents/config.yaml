@@ -72,8 +72,8 @@ commands:
   #     - dotnet build App.slnx
   #     - npm --prefix web run build
   # Write one form per key; `agent.sh config-check` rejects both at once, an empty item and a duplicate.
-  build:
-  test:
+  build: npm run build
+  test: npm test
   lint:
   # The project's own secret scanner, if any; the built-in pattern scan otherwise.
   secret_scan:
