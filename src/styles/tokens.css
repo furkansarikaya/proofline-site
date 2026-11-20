@@ -1,0 +1,60 @@
+/* Design tokens: the colour table of docs/design/DESIGN.md. Light and dark are written out separately; neither is derived from the other. */
+
+:root {
+  color-scheme: light;
+  --bg: #dedad3;
+  --surface: #d3cec6;
+  --frame: #e6e3dd;
+  --ink: #0a0a0a;
+  --muted: #5c5852;
+  --accent: #256f82;
+  --block: #c4152b;
+  --rule: rgba(10, 10, 10, 0.3);
+  --grid: rgba(10, 10, 10, 0.09);
+  --hatch: rgba(10, 10, 10, 0.2);
+}
+
+/* No data-theme attribute: the system setting decides. data-theme="light" keeps the light values above. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d0f10;
+    --surface: #161a1c;
+    --frame: #111416;
+    --ink: #e8e4dc;
+    --muted: #979c9f;
+    --accent: #4aa3b8;
+    --block: #e0354a;
+    --rule: rgba(232, 228, 220, 0.26);
+    --grid: rgba(232, 228, 220, 0.07);
+    --hatch: rgba(232, 228, 220, 0.17);
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #dedad3;
+  --surface: #d3cec6;
+  --frame: #e6e3dd;
+  --ink: #0a0a0a;
+  --muted: #5c5852;
+  --accent: #256f82;
+  --block: #c4152b;
+  --rule: rgba(10, 10, 10, 0.3);
+  --grid: rgba(10, 10, 10, 0.09);
+  --hatch: rgba(10, 10, 10, 0.2);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0f10;
+  --surface: #161a1c;
+  --frame: #111416;
+  --ink: #e8e4dc;
+  --muted: #979c9f;
+  --accent: #4aa3b8;
+  --block: #e0354a;
+  --rule: rgba(232, 228, 220, 0.26);
+  --grid: rgba(232, 228, 220, 0.07);
+  --hatch: rgba(232, 228, 220, 0.17);
+}
