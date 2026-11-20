@@ -1,0 +1,504 @@
+// Node tests for the design tokens, the self-hosted fonts and the base styles (TASK-003).
+// The style tests read the source files; the build tests build once into a private output directory, so they never race tests/site.test.mjs, which removes and rebuilds dist/.
+import { after, before, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { brotliDecompressSync } from 'node:zlib';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { load } from 'cheerio';
+import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const fontsDir = join(root, 'public', 'fonts');
+const sampleFontsDir = join(root, 'docs', 'design', 'references', 'direction-c', 'fonts');
+
+sweepStale();
+after(removeTempDirs);
+
+/** Text of a file under the repository root, or '' when it is absent (so a missing file fails an assertion, not a crash). */
+function read(rel) {
+  const file = join(root, rel);
+  return existsSync(file) ? readFileSync(file, 'utf8') : '';
+}
+
+/** Every file name under a folder of the repository that ends with one of the suffixes; recursive, POSIX relative paths. */
+function walk(dir, prefix = '') {
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...walk(join(dir, entry.name), rel));
+    else out.push(rel);
+  }
+  return out.sort();
+}
+
+// ---- a small css reader ---------------------------------------------------------------------------------------------------------------
+
+const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '');
+
+/** Split `text` at `sep` where it is not inside parentheses. */
+function splitTop(text, sep) {
+  const parts = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] === '(') depth += 1;
+    else if (text[i] === ')') depth -= 1;
+    else if (text[i] === sep && depth === 0) { parts.push(text.slice(from, i)); from = i + 1; }
+  }
+  parts.push(text.slice(from));
+  return parts.map((p) => p.trim()).filter((p) => p !== '');
+}
+
+/** [[property, value], ...] of a declaration block. */
+function parseDecls(body) {
+  return splitTop(body, ';').map((d) => {
+    const i = d.indexOf(':');
+    return [d.slice(0, i).trim().toLowerCase(), d.slice(i + 1).trim()];
+  });
+}
+
+/** Flat list of { at: [media conditions], selector, decls } from css text; media rules are unrolled, comments are dropped. */
+function parseCss(text) {
+  const src = stripComments(text);
+  let i = 0;
+  function block() {
+    const rules = [];
+    while (i < src.length) {
+      const open = src.indexOf('{', i);
+      const close = src.indexOf('}', i);
+      if (close !== -1 && (open === -1 || close < open)) { i = close + 1; return rules; }
+      if (open === -1) break;
+      const head = src.slice(i, open).trim();
+      i = open + 1;
+      if (/^@(media|supports)/.test(head)) {
+        const at = head.replace(/\s+/g, '');
+        for (const r of block()) rules.push({ ...r, at: [at, ...r.at] });
+      } else {
+        const end = src.indexOf('}', i);
+        rules.push({ at: [], selector: head, decls: parseDecls(src.slice(i, end)) });
+        i = end + 1;
+      }
+    }
+    return rules;
+  }
+  return block();
+}
+
+/** The media conditions on width found in css text (any width feature, any spelling), as the parser normalises them; other media features are not listed. */
+function widthQueries(text) {
+  return parseCss(text).flatMap((r) => r.at).filter((at) => at.startsWith('@media') && /width/i.test(at));
+}
+
+const selectors = (rule) => splitTop(rule.selector, ',').map((s) => s.replace(/["'\s]/g, ''));
+const sameSelector = (rule, wanted) => selectors(rule).length === 1 && selectors(rule)[0] === wanted;
+const declOf = (rule, prop) => rule.decls.filter(([p]) => p === prop).map(([, v]) => v).at(-1);
+const nospace = (value) => String(value ?? '').replace(/\s+/g, '');
+/** The numbers written with a px unit in a value. */
+const pxNumbers = (value) => [...String(value ?? '').matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]));
+
+/** Red, green, blue, alpha of a hex or rgba() colour. */
+function colour(value) {
+  const v = value.trim().toLowerCase();
+  let m = /^#([0-9a-f]{6})$/.exec(v);
+  if (m) return [0, 2, 4].map((o) => parseInt(m[1].slice(o, o + 2), 16)).concat(1);
+  m = /^#([0-9a-f]{3})$/.exec(v);
+  if (m) return [...m[1]].map((c) => parseInt(c + c, 16)).concat(1);
+  m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([0-9.]+)\s*)?\)$/.exec(v);
+  if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])];
+  return null;
+}
+
+const TOKENS = ['--bg', '--surface', '--frame', '--ink', '--muted', '--accent', '--block', '--rule', '--grid', '--hatch'];
+
+/** { '--bg': { light: 'value', dark: 'value' }, ... } from the Tokens table of DESIGN.md. */
+function designTokens() {
+  const table = {};
+  for (const line of read('docs/design/DESIGN.md').split('\n')) {
+    if (!line.startsWith('| `--')) continue;
+    const cells = line.split('|').map((c) => c.trim());
+    const span = (cell) => /`([^`]+)`/.exec(cell)?.[1];
+    table[span(cells[1])] = { light: span(cells[2]), dark: span(cells[3]) };
+  }
+  return table;
+}
+
+const tokensCss = () => parseCss(read('src/styles/tokens.css'));
+const baseCss = () => parseCss(read('src/styles/base.css'));
+const styleFiles = () => walk(join(root, 'src', 'styles')).filter((f) => f.endsWith('.css')).map((f) => `src/styles/${f}`);
+
+const LIGHT = ':root';
+const DARK_SYSTEM = ':root:not([data-theme=light])';
+const LIGHT_ATTR = ':root[data-theme=light]';
+const DARK_ATTR = ':root[data-theme=dark]';
+const DARK_MEDIA = '@media(prefers-color-scheme:dark)';
+
+/** { name: value } of the custom properties of the rule with this normalised selector and media condition, or null. */
+function tokenRule(rules, selector, at) {
+  const rule = rules.find((r) => sameSelector(r, selector) && r.at.join(' ') === at);
+  if (rule === undefined) return null;
+  return Object.fromEntries(rule.decls.filter(([p]) => p.startsWith('--')));
+}
+
+// ---- a small WOFF2 glyph reader (cmap formats 4 and 12) --------------------------------------------------------------------------------
+
+const WOFF2_TAGS = ['cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name', 'OS/2', 'post', 'cvt ', 'fpgm', 'glyf', 'loca', 'prep', 'CFF ', 'VORG', 'EBDT', 'EBLC', 'gasp', 'hdmx', 'kern', 'LTSH', 'PCLT', 'VDMX', 'vhea', 'vmtx', 'BASE', 'GDEF', 'GPOS', 'GSUB', 'EBSC', 'JSTF', 'MATH', 'CBDT', 'CBLC', 'COLR', 'CPAL', 'SVG ', 'sbix', 'acnt', 'avar', 'bdat', 'bloc', 'bsln', 'cvar', 'fdsc', 'feat', 'fmtx', 'fvar', 'gvar', 'hsty', 'just', 'lcar', 'mort', 'morx', 'opbd', 'prop', 'trak', 'Zapf', 'Silf', 'Glat', 'Gloc', 'Feat', 'Sill'];
+
+/** The set of code points that map to a glyph other than .notdef in the cmap table of a WOFF2 file. */
+function woff2Codepoints(buf) {
+  assert.equal(buf.toString('latin1', 0, 4), 'wOF2', 'a WOFF2 file begins with wOF2');
+  const numTables = buf.readUInt16BE(12);
+  const compressedSize = buf.readUInt32BE(20);
+  let pos = 48;
+  const base128 = () => {
+    let n = 0;
+    for (let k = 0; k < 5; k += 1) {
+      const b = buf[pos]; pos += 1;
+      n = n * 128 + (b & 0x7f);
+      if ((b & 0x80) === 0) break;
+    }
+    return n;
+  };
+  const tables = [];
+  let offset = 0;
+  for (let t = 0; t < numTables; t += 1) {
+    const flags = buf[pos]; pos += 1;
+    const index = flags & 0x3f;
+    const version = flags >> 6;
+    let tag = WOFF2_TAGS[index];
+    if (index === 63) { tag = buf.toString('latin1', pos, pos + 4); pos += 4; }
+    const origLength = base128();
+    const transformed = tag === 'glyf' || tag === 'loca' ? version === 0 : version !== 0;
+    const length = transformed ? base128() : origLength;
+    tables.push({ tag, offset, length });
+    offset += length;
+  }
+  const data = brotliDecompressSync(buf.subarray(pos, pos + compressedSize));
+  const cmapEntry = tables.find((t) => t.tag === 'cmap');
+  assert.ok(cmapEntry, 'the font has a cmap table');
+  const cmap = data.subarray(cmapEntry.offset, cmapEntry.offset + cmapEntry.length);
+  const found = new Set();
+  const records = cmap.readUInt16BE(2);
+  for (let r = 0; r < records; r += 1) {
+    const platform = cmap.readUInt16BE(4 + r * 8);
+    const sub = cmap.readUInt32BE(8 + r * 8);
+    if (platform !== 0 && platform !== 3) continue;
+    const format = cmap.readUInt16BE(sub);
+    if (format === 4) {
+      const segs = cmap.readUInt16BE(sub + 6) / 2;
+      const endAt = sub + 14;
+      const startAt = endAt + segs * 2 + 2;
+      const deltaAt = startAt + segs * 2;
+      const rangeAt = deltaAt + segs * 2;
+      for (let s = 0; s < segs; s += 1) {
+        const end = cmap.readUInt16BE(endAt + s * 2);
+        const start = cmap.readUInt16BE(startAt + s * 2);
+        const delta = cmap.readUInt16BE(deltaAt + s * 2);
+        const rangeOffset = cmap.readUInt16BE(rangeAt + s * 2);
+        for (let c = start; c <= end && c < 0xffff; c += 1) {
+          let glyph;
+          if (rangeOffset === 0) glyph = (c + delta) & 0xffff;
+          else {
+            glyph = cmap.readUInt16BE(rangeAt + s * 2 + rangeOffset + (c - start) * 2);
+            if (glyph !== 0) glyph = (glyph + delta) & 0xffff;
+          }
+          if (glyph !== 0) found.add(c);
+        }
+      }
+    } else if (format === 12) {
+      const groups = cmap.readUInt32BE(sub + 12);
+      for (let g = 0; g < groups; g += 1) {
+        const start = cmap.readUInt32BE(sub + 16 + g * 12);
+        const end = cmap.readUInt32BE(sub + 20 + g * 12);
+        const glyph = cmap.readUInt32BE(sub + 24 + g * 12);
+        for (let c = start; c <= end; c += 1) if (glyph + (c - start) !== 0) found.add(c);
+      }
+    }
+  }
+  return found;
+}
+
+/** [[from, to], ...] of a unicode-range value. */
+function unicodeRanges(value) {
+  return value.split(',').map((part) => {
+    const m = /^U\+([0-9A-F]+)(?:-([0-9A-F]+))?$/i.exec(part.trim());
+    assert.ok(m, `unicode-range part "${part}" is U+XXXX or U+XXXX-YYYY`);
+    return [parseInt(m[1], 16), parseInt(m[2] ?? m[1], 16)];
+  });
+}
+
+const FAMILIES = {
+  'stack-sans-headline': 'Stack Sans Headline',
+  'stack-sans-text': 'Stack Sans Text',
+  'jetbrains-mono': 'JetBrains Mono',
+};
+const FONT_FILES = [
+  'jetbrains-mono-latin-400', 'jetbrains-mono-latin-500', 'jetbrains-mono-latin-ext-400', 'jetbrains-mono-latin-ext-500',
+  'stack-sans-headline-latin-400', 'stack-sans-headline-latin-ext-400',
+  'stack-sans-text-latin-400', 'stack-sans-text-latin-500', 'stack-sans-text-latin-ext-400', 'stack-sans-text-latin-ext-500',
+].map((n) => `${n}.woff2`);
+const OFL_FILES = ['OFL-jetbrains-mono.txt', 'OFL-stack-sans-headline.txt', 'OFL-stack-sans-text.txt'];
+const familyOf = (file) => FAMILIES[Object.keys(FAMILIES).find((k) => file.startsWith(`${k}-`))];
+
+// ---- tokens ---------------------------------------------------------------------------------------------------------------------------
+
+describe('tokens', () => {
+  it('tokens.css holds the 10 DESIGN.md tokens with equal light and dark colours', () => {
+    const table = designTokens();
+    assert.deepEqual(Object.keys(table).sort(), [...TOKENS].sort(), 'the DESIGN.md table holds the 10 tokens');
+    const rules = tokensCss();
+    const sets = {
+      light: tokenRule(rules, LIGHT, ''),
+      dark: tokenRule(rules, DARK_ATTR, ''),
+    };
+    for (const mode of ['light', 'dark']) {
+      assert.ok(sets[mode], `tokens.css has the ${mode} value rule`);
+      assert.deepEqual(Object.keys(sets[mode]).sort(), [...TOKENS].sort(), `the ${mode} rule holds exactly the 10 tokens`);
+      for (const name of TOKENS) {
+        const want = colour(table[name][mode]);
+        const have = colour(sets[mode][name]);
+        assert.ok(want, `DESIGN.md ${name} ${mode} "${table[name][mode]}" is a colour`);
+        assert.deepEqual(have, want, `${name} ${mode}: tokens.css "${sets[mode][name]}" equals DESIGN.md "${table[name][mode]}"`);
+      }
+    }
+  });
+
+  it('tokens.css switches light and dark by data-theme and by system setting', () => {
+    const table = designTokens();
+    const rules = tokensCss();
+    const expectations = [
+      ['light by default', LIGHT, '', 'light'],
+      ['dark by system setting while data-theme is not light', DARK_SYSTEM, DARK_MEDIA, 'dark'],
+      ['light by data-theme', LIGHT_ATTR, '', 'light'],
+      ['dark by data-theme', DARK_ATTR, '', 'dark'],
+    ];
+    for (const [label, selector, at, mode] of expectations) {
+      const set = tokenRule(rules, selector, at);
+      assert.ok(set, `tokens.css has the rule for ${label}`);
+      assert.deepEqual(Object.keys(set).sort(), [...TOKENS].sort(), `${label}: the 10 tokens are written out`);
+      for (const name of TOKENS) {
+        assert.match(set[name], /^(#[0-9a-fA-F]{3,6}|rgba\([0-9., ]+\))$/, `${label}: ${name} is a literal colour, never derived`);
+        assert.deepEqual(colour(set[name]), colour(table[name][mode]), `${label}: ${name} holds the ${mode} value`);
+      }
+    }
+  });
+});
+
+// ---- fonts ----------------------------------------------------------------------------------------------------------------------------
+
+describe('fonts', () => {
+  it('public/fonts holds ten woff2 files with the wOF2 signature and three OFL texts', () => {
+    const names = existsSync(fontsDir) ? readdirSync(fontsDir).sort() : [];
+    assert.deepEqual(names, [...FONT_FILES, ...OFL_FILES].sort(), 'public/fonts holds exactly the ten fonts and three licence texts');
+    for (const file of FONT_FILES) {
+      const bytes = readFileSync(join(fontsDir, file));
+      assert.equal(bytes.toString('latin1', 0, 4), 'wOF2', `${file} begins with wOF2`);
+      assert.ok(bytes.equals(readFileSync(join(sampleFontsDir, file))), `${file} is copied unchanged from the approved sample`);
+    }
+    for (const file of OFL_FILES) {
+      const text = readFileSync(join(fontsDir, file), 'utf8');
+      assert.ok(text.includes('SIL OPEN FONT LICENSE Version 1.1'), `${file} holds the licence title`);
+      assert.equal(text, readFileSync(join(sampleFontsDir, file), 'utf8'), `${file} is copied unchanged from the approved sample`);
+    }
+  });
+
+  it('each font family has glyphs for the twelve Turkish letters', () => {
+    const letters = [...'ğĞşŞıİçÇöÖüÜ'];
+    assert.equal(letters.length, 12);
+    const glyphs = Object.fromEntries(FONT_FILES.map((file) => {
+      const path = join(fontsDir, file);
+      return [file, existsSync(path) ? woff2Codepoints(readFileSync(path)) : new Set()];
+    }));
+    // The reader itself is checked on a known font: it sees a Latin letter and does not see a Chinese character.
+    const probe = glyphs['stack-sans-text-latin-400.woff2'];
+    if (probe.size > 0) {
+      assert.ok(probe.has('A'.codePointAt(0)), 'the reader finds the glyph of A');
+      assert.ok(!probe.has(0x4e2d), 'the reader does not invent a glyph for a Chinese character');
+    }
+    for (const family of Object.values(FAMILIES)) {
+      const files = FONT_FILES.filter((f) => familyOf(f) === family);
+      for (const letter of letters) {
+        assert.ok(files.some((f) => glyphs[f].has(letter.codePointAt(0))), `${family} has a glyph for ${letter} (U+${letter.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')})`);
+      }
+    }
+  });
+
+  it('base.css has one font-face rule per font file with the Turkish unicode ranges', () => {
+    const faces = baseCss().filter((r) => r.selector === '@font-face');
+    assert.equal(faces.length, FONT_FILES.length, 'one font-face rule per font file');
+    const latin = [0xc7, 0xe7, 0xd6, 0xf6, 0xdc, 0xfc];
+    const latinExt = [0x11e, 0x11f, 0x130, 0x131, 0x15e, 0x15f];
+    for (const file of FONT_FILES) {
+      const matching = faces.filter((r) => new RegExp(`url\\(\\s*["']?/fonts/${file.replace('.', '\\.')}["']?\\s*\\)`).test(declOf(r, 'src') ?? ''));
+      assert.equal(matching.length, 1, `exactly one font-face rule has url(/fonts/${file})`);
+      const rule = matching[0];
+      assert.equal((declOf(rule, 'font-family') ?? '').replace(/["']/g, ''), familyOf(file), `${file}: font-family`);
+      assert.equal(Number(declOf(rule, 'font-weight')), Number(/-(\d{3})\.woff2$/.exec(file)[1]), `${file}: font-weight`);
+      assert.equal(declOf(rule, 'font-display'), 'swap', `${file}: font-display swap`);
+      const ranges = unicodeRanges(declOf(rule, 'unicode-range') ?? '');
+      const inRange = (cp) => ranges.some(([from, to]) => cp >= from && cp <= to);
+      const wanted = file.includes('-latin-ext-') ? latinExt : latin;
+      for (const cp of wanted) assert.ok(inRange(cp), `${file}: unicode-range includes U+${cp.toString(16).toUpperCase().padStart(4, '0')}`);
+    }
+  });
+});
+
+// ---- typography, grid and bans --------------------------------------------------------------------------------------------------------
+
+describe('base styles', () => {
+  it('base.css sets the three font families on the right elements', () => {
+    const rules = baseCss().filter((r) => r.selector !== '@font-face');
+    const familyList = (rule) => splitTop(declOf(rule, 'font-family') ?? '', ',').map((f) => f.replace(/["']/g, ''));
+    const headings = rules.find((r) => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].every((h) => selectors(r).includes(h)));
+    assert.ok(headings, 'a rule covers h1 to h6');
+    assert.equal(familyList(headings)[0], 'Stack Sans Headline', 'headings use Stack Sans Headline');
+    assert.ok(['sans-serif', 'system-ui'].includes(familyList(headings).at(-1)), 'the heading list ends with a generic family');
+    assert.equal(declOf(headings, 'font-weight'), '400', 'headings are weight 400');
+    const body = rules.find((r) => sameSelector(r, 'body'));
+    assert.ok(body, 'a rule covers body');
+    assert.equal(familyList(body)[0], 'Stack Sans Text', 'text uses Stack Sans Text');
+    assert.ok(['sans-serif', 'system-ui'].includes(familyList(body).at(-1)), 'the text list ends with a generic family');
+    assert.equal(declOf(body, 'font-weight'), '400', 'text is weight 400');
+    assert.ok(rules.some((r) => declOf(r, 'font-weight') === '500' && !selectors(r).some((s) => /^h[1-6]$/.test(s))), 'some text rule is weight 500');
+    const mono = rules.filter((r) => familyList(r).includes('JetBrains Mono'));
+    assert.equal(mono.length, 1, 'JetBrains Mono is named in exactly one rule');
+    assert.deepEqual(selectors(mono[0]).sort(), ['code', 'kbd', 'pre', 'samp'], 'JetBrains Mono is set on code, pre, kbd and samp only');
+    assert.equal(familyList(mono[0]).at(-1), 'monospace', 'the mono list ends with the generic monospace family');
+    const headingFamily = rules.filter((r) => familyList(r).includes('Stack Sans Headline'));
+    assert.deepEqual(headingFamily, [headings], 'Stack Sans Headline is named in the heading rule only');
+  });
+
+  it('base.css defines the six type steps with the DESIGN.md values', () => {
+    const rules = baseCss();
+    const rootRules = rules.filter((r) => sameSelector(r, ':root') && r.at.length === 0);
+    const step = (list, name) => list.map((r) => declOf(r, name)).filter((v) => v !== undefined).at(-1);
+    const phone = rules.filter((r) => sameSelector(r, ':root') && r.at.join(' ') === '@media(max-width:820px)');
+    const expected = {
+      '--step-head': [34, 70],
+      '--step-h2': [26, 36],
+      '--step-lead': [17],
+      '--step-body': [15.5, 17],
+      '--step-small': [13.5, 15],
+      '--step-mono': [13.5, 14],
+    };
+    for (const [name, px] of Object.entries(expected)) {
+      const value = step(rootRules, name);
+      assert.ok(value, `${name} is defined in :root`);
+      assert.deepEqual(pxNumbers(value), px, `${name} px values in "${value}"`);
+    }
+    assert.match(step(rootRules, '--step-head'), /4\.9vw/, 'step-head scales with 4.9vw on desktop');
+    const phoneHead = step(phone, '--step-head');
+    assert.ok(phoneHead, 'step-head has a value for widths up to 820px');
+    assert.deepEqual(pxNumbers(phoneHead), [28, 40], 'step-head is 28 to 40 px on a phone');
+    assert.match(phoneHead, /8vw/, 'step-head scales with 8vw on a phone');
+    assert.equal(Math.min(...pxNumbers(step(rootRules, '--step-body'))), 15.5, 'body never goes below 15.5px');
+  });
+
+  it('base.css has a 12 column bordered grid, the two breakpoints and no radius, shadow or gradient', () => {
+    const files = styleFiles();
+    assert.ok(files.includes('src/styles/base.css') && files.includes('src/styles/tokens.css'), 'both style files exist');
+    const rules = baseCss();
+    const withDecl = (prop, test) => rules.filter((r) => r.decls.some(([p, v]) => p === prop && test(nospace(v))));
+    assert.ok(withDecl('grid-template-columns', (v) => v.startsWith('repeat(12,')).length > 0, 'a rule has 12 grid columns');
+    assert.ok(withDecl('max-width', (v) => v === '1400px').length > 0, 'a rule has max width 1400px');
+    assert.ok(withDecl('padding', (v) => /^0(?:px)?20px$/.test(v)).length + withDecl('padding-inline', (v) => v === '20px').length > 0, 'a rule has 20px side gutters');
+    const hairline = rules.filter((r) => r.decls.some(([p, v]) => /^border(-(left|right|inline|inline-start|inline-end))?$/.test(p) && nospace(v) === '1pxsolidvar(--grid)'));
+    assert.ok(hairline.length >= 2, 'the grid hairlines are 1px borders in --grid');
+    const media = new Set(rules.flatMap((r) => r.at));
+    assert.ok(media.has('@media(max-width:820px)'), 'there is a 820px breakpoint');
+    assert.ok(media.has('@media(max-width:1000px)'), 'there is a 1000px breakpoint');
+    const stacked = rules.filter((r) => r.at.join(' ') === '@media(max-width:820px)' && nospace(declOf(r, 'grid-template-columns')) === '1fr');
+    assert.ok(stacked.length > 0, 'below 820px the columns stack');
+    const onlyBreakpoints = (text) => [...new Set(widthQueries(text))].filter((q) => q !== '@media(max-width:820px)' && q !== '@media(max-width:1000px)');
+    for (const file of ['src/styles/base.css', 'src/styles/tokens.css']) assert.deepEqual(onlyBreakpoints(read(file)), [], `${file} has no width media query besides 820px and 1000px`);
+    assert.deepEqual(onlyBreakpoints('a{x:y}@media (max-width: 900px){a{x:z}}'), ['@media(max-width:900px)'], 'an extra max-width breakpoint is caught');
+    assert.deepEqual(onlyBreakpoints('@media (min-width: 821px){a{x:y}}'), ['@media(min-width:821px)'], 'a min-width query is caught');
+    assert.deepEqual(onlyBreakpoints('@media (width <= 900px){a{x:y}}'), ['@media(width<=900px)'], 'a range syntax width query is caught');
+    assert.deepEqual(onlyBreakpoints('@media (max-width: 820px){a{x:y}} @media (max-width:1000px){a{x:y}} @media (prefers-color-scheme: dark){a{x:y}}'), [], 'the two breakpoints and a colour scheme query are allowed');
+    for (const file of files) {
+      const text = stripComments(read(file));
+      assert.doesNotMatch(text, /gradient\s*\(/i, `${file} has no gradient function`);
+      for (const rule of parseCss(text)) {
+        for (const [prop, value] of rule.decls) {
+          if (/^border(-[a-z]+)*-radius$/.test(prop)) assert.match(value, /^0(px)?$/, `${file}: ${prop} is 0 in "${rule.selector}"`);
+          if (prop === 'box-shadow') assert.equal(value, 'none', `${file}: box-shadow is none in "${rule.selector}"`);
+        }
+      }
+    }
+  });
+
+  it('the two block colour values appear only in tokens.css and var block nowhere', () => {
+    const files = [...styleFiles(), 'src/layouts/Base.astro'];
+    assert.ok(files.includes('src/styles/tokens.css') && files.includes('src/styles/base.css'), 'both style files exist');
+    const tokens = stripComments(read('src/styles/tokens.css')).toLowerCase();
+    assert.ok(tokens.includes('#c4152b') && tokens.includes('#e0354a'), 'tokens.css holds both block values');
+    for (const file of files.filter((f) => f !== 'src/styles/tokens.css')) {
+      const text = read(file).toLowerCase();
+      assert.ok(!text.includes('#c4152b') && !text.includes('#e0354a'), `${file} holds neither block value`);
+    }
+    for (const file of files) assert.doesNotMatch(read(file), /var\(\s*--block\b/, `${file} does not use var(--block)`);
+  });
+});
+
+// ---- the built site -------------------------------------------------------------------------------------------------------------------
+
+describe('built site', () => {
+  let outDir = '';
+  let build = { status: -1, stderr: '' };
+
+  before(() => {
+    outDir = join(makeTempDir('proofline-site-'), 'dist');
+    const r = spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', outDir], { cwd: root, encoding: 'utf8' });
+    build = { status: r.status, stderr: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+  }, { timeout: 120000 });
+
+  const pages = () => walk(outDir).filter((f) => f.endsWith('.html'));
+
+  it('styles and dist hold no external host, no import and no foreign url', { timeout: 120000 }, () => {
+    assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
+    const files = [
+      ...styleFiles().map((f) => [f, read(f)]),
+      ['src/layouts/Base.astro', read('src/layouts/Base.astro')],
+      ...walk(outDir).filter((f) => /\.(css|html)$/.test(f)).map((f) => [`dist/${f}`, readFileSync(join(outDir, f), 'utf8')]),
+    ];
+    assert.ok(files.some(([f]) => f.endsWith('.css') && f.startsWith('dist/')), 'the build emitted a stylesheet');
+    assert.ok(files.length >= 7, 'the scan read the sources and the built files');
+    for (const [name, raw] of files) {
+      const text = name.endsWith('.css') ? stripComments(raw) : raw;
+      assert.doesNotMatch(text, /https?:\/\//i, `${name} names no host`);
+      assert.doesNotMatch(text, /@import/i, `${name} has no @import`);
+      for (const m of text.matchAll(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi)) {
+        assert.ok(m[2].startsWith('/fonts/') || m[2].startsWith('/_astro/'), `${name}: url(${m[2]}) starts with /fonts/ or /_astro/`);
+      }
+    }
+  });
+
+  it('built home pages link one same-origin stylesheet and hold no inline style', { timeout: 120000 }, async () => {
+    const layout = read('src/layouts/Base.astro');
+    const tokensAt = layout.search(/import\s+['"]\.\.\/styles\/tokens\.css['"]/);
+    const baseAt = layout.search(/import\s+['"]\.\.\/styles\/base\.css['"]/);
+    assert.ok(tokensAt >= 0, 'Base.astro imports ../styles/tokens.css');
+    assert.ok(baseAt > tokensAt, 'Base.astro imports ../styles/base.css after tokens.css');
+    const config = (await import(pathToFileURL(join(root, 'astro.config.mjs')).href)).default;
+    assert.equal(config.build.inlineStylesheets, 'never', 'astro.config.mjs sets build.inlineStylesheets to never');
+    assert.equal(config.build.format, 'directory', 'the existing build format is kept');
+    assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
+    for (const rel of ['index.html', 'tr/index.html']) {
+      assert.ok(existsSync(join(outDir, rel)), `${rel} is built`);
+      const $ = load(readFileSync(join(outDir, rel), 'utf8'));
+      const links = $('link[rel~=stylesheet]').toArray();
+      assert.equal(links.length, 1, `${rel} links exactly one stylesheet`);
+      const href = links[0].attribs.href;
+      assert.match(href, /^\/(?!\/)[^:]*\.css$/, `${rel}: the stylesheet "${href}" is a same-origin path`);
+      assert.ok(existsSync(join(outDir, href)), `${rel}: ${href} exists in the build`);
+    }
+    for (const rel of pages()) {
+      const $ = load(readFileSync(join(outDir, rel), 'utf8'));
+      assert.equal($('style').length, 0, `${rel} has no style element`);
+      assert.equal($('[style]').length, 0, `${rel} has no style attribute`);
+    }
+  });
+});

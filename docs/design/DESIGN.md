@@ -94,7 +94,10 @@ These are rules, not suggestions; a page that breaks one fails review.
 - Content must work without scripts: the language link, the menu, the command text and the system theme need none; only the saved theme and the copy button need the controls script.
 
 ## Pattern justifications
-- none used. (The page does not use a centred title with two buttons and a floating panel, a stat band, a logo wall, a testimonial slider, gradient blobs, glass cards, or all-capitals eyebrow labels.)
+The patterns centred title with two buttons and a floating panel, stat band, logo wall, testimonial slider, gradient blobs, glass cards and all-capitals eyebrow labels stay unused. Three lint patterns fire on the approved direction, each for a stated reason:
+- mono-labels: the monospace face is set only on commands and gate names, a decision of the approved direction C (Quiet Instrument)
+- hairline-newspaper: the thin rules are part of the engineering-drawing grid of the approved direction, not decoration
+- numbered-steps: the numbered steps are the real order of the gates, 01 PLAN to 05 VERIFY
 
 ## Gaps
 - Nothing is built yet: every path above marked `planned` is to be created by the implementation tasks. The docs surface is specified in DESIGN-docs.md.
