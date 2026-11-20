@@ -124,6 +124,7 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 - 0006 Enforce privacy with a strict CSP from vercel.json, keep the origin referrer to the repository, and state privacy and licence in one footer line (accepted)
 - 0007 Save weekly traffic snapshots to an orphan traffic-data branch, warn after 10 days, and tell the owner by GitHub issues (accepted)
 - 0008 Gate every change with one required CI check that builds twice, checks dist/, runs axe and Lighthouse, and verifies workflow permissions (accepted)
+- 0009 Run browser checks with the Playwright library under node:test, not with the Playwright Test runner (accepted)
 
 ## Q-5 closure
 
