@@ -12,8 +12,8 @@
 - The proofline repository has no git tag. [fact: ref site#C-26]
 - GitHub Spec Kit already uses the word "evidence" for its processes. [fact: ref site#C-70]
 - Cursor staff confirm that the agent sometimes ignores the rules a project has written. [fact: ref site#C-73]
-- GitHub returns the repository views for a window of the last 14 days, so a record kept only by GitHub loses the older days. [fact: web https://docs.github.com/en/rest/metrics/traffic accessed 2026-11-19 "for the last 14 days"]
-- The GitHub documentation lists the endpoint /repos/{owner}/{repo}/traffic/views under the fine-grained token permission "Administration", with access read, so a token that reads traffic needs that permission. [fact: web https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens accessed 2026-11-19 "/repos/{owner}/{repo}/traffic/views"]
+- GitHub returns the repository views for a window of the last 14 days, so a record kept only by GitHub loses the older days. [fact: web https://docs.github.com/en/rest/metrics/traffic accessed 2026-11-19 "for the last 14 days"] [no longer used: belongs to the removed traffic snapshot job, PRD L-4]
+- The GitHub documentation lists the endpoint /repos/{owner}/{repo}/traffic/views under the fine-grained token permission "Administration", with access read, so a token that reads traffic needs that permission. [fact: web https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens accessed 2026-11-19 "/repos/{owner}/{repo}/traffic/views"] [no longer used: belongs to the removed traffic snapshot job, PRD L-4]
 - The repository clone total is 84885 against 1430 page views, so clone counts do not represent readers. [fact: ref site#C-97]
 - The README of the proofline repository states that it is not yet proven on real projects. [fact: web https://github.com/furkansarikaya/proofline accessed 2026-11-19 "It is not yet proven on real projects."]
 

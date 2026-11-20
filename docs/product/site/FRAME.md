@@ -23,7 +23,7 @@
 
 ## Success measures
 
-- C-13 Success is read from GitHub stars, GitHub repository page views (unique visitors), referrers from the site to the repository, documentation page visits and Search Console impressions; clone counts are not a measure (changed 2026-11-19, see RESEARCH C-86) [decision: by product owner because the site runs without cookies or banners and the clone counts include automated clones]
+- C-13 Success is read from GitHub stars, GitHub repository page views (unique visitors), referrers from the site to the repository, documentation page visits and Search Console impressions; clone counts are not a measure (changed 2026-11-19, see RESEARCH C-86) [decision: by product owner because the site runs without cookies or banners and the clone counts include automated clones] [claim updated 2026-11-20: PRD L-4 removed the unique visitors and referrers measures]
 
 ## Out of scope
 

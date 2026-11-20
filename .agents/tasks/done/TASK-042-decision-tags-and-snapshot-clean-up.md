@@ -1,5 +1,7 @@
 # Task: TASK-042 - Decision tags in the source documents and snapshot references removed from the design documents
 
+**Status:** done
+
 ---
 origin: prd:site
 type: docs
@@ -86,3 +88,101 @@ STANDARD - text-only change to up to eight product and design documents (more th
 - `grep -n 'Decisions recorded from the PRD' docs/product/site/DECISION.md`
 - `ls docs/product/site/PRD-CHANGES.md`
 - `grep -n -i 'snapshot\|traffic-data\|TRAFFIC_TOKEN\|TOKENS.md' docs/design/ARCHITECTURE.md docs/adr/0005-hosting-cutover-way-back-and-closed-previews.md docs/adr/0006-privacy-headers-csp-and-referrer.md docs/adr/0008-ci-checks-budgets-and-workflow-permissions.md`
+
+## Proofline Status
+
+<!-- PROOFLINE-STATUS:BEGIN:TASK-042 -->
+- run: TASK-042
+- type: docs
+- stage: RUNNING (PLANNING, handoff PLANNED)
+- event: run-start
+- updated: 2026-11-20T21:17:07Z
+- runtime: claude
+- session: 8bfe83d7-18e5-44d1-9008-a045f052b9c8
+- estimate: size S
+- duration: 0 min
+<!-- PROOFLINE-STATUS:END:TASK-042 -->
+
+## Completion Report
+
+<!-- COMPLETION-REPORT:BEGIN:TASK-042 -->
+# Completion Report: TASK-042
+
+<!-- proofline:summary:begin -->
+Changed: DECISION.md records the 29 PRD decision tags, and the removed traffic snapshot job is cleaned out of ARCHITECTURE.md and ADRs 0005 and 0008, with the M-4 and M-5 baselines set to 0.
+Verify: `npm test`
+<!-- proofline:summary:end -->
+
+## Implementation Summary
+
+Documents only, seven paths. `docs/product/site/DECISION.md` gets the section "Decisions recorded from the PRD" with one item for each decision-tagged PRD item (reasons copied word for word), DEC-2 follows FR-31 and DEC-3 is unchanged. RESEARCH C-86 and C-87 and FRAME C-13 carry a marker naming PRD L-4 and are listed as claim updated. `docs/design/ARCHITECTURE.md`, ADR 0005 and ADR 0008 lose the snapshot, traffic-data, TRAFFIC_TOKEN and TOKENS.md references; the M-4 and M-5 baselines read 0; ADR 0005 and ADR 0008 each get one amendment line. ADR 0006 and ADR 0007 are not edited. `docs/product/site/PRD.md` changes only the two Problem lines, which are marked no longer used.
+
+## TDD Evidence
+
+Every scope path carries a tdd_exemption (documents only), so no RED exists; the checks are the plan's shell commands.
+
+## Verification
+
+All commands of the plan's Verification commands exit 0 on the final tree, including `npm ci` and `npm test`.
+
+## Assumptions
+
+- AS-1 (low): the claim C-87 is marked superseded in its own line instead of being deleted — unverified
+- AS-2 (low): ARCHITECTURE history lines may stay when they say removed or superseded — unverified
+- AS-3 (low): the verification commands contain no pipe or backtick — unverified
+
+## QA Result
+
+QA passed for all twelve criteria, with adversarial mutants run in the evidence worktree only.
+
+## Execution
+
+Generated from the decision records by `agent.sh report-execution TASK-042` when the report is published; never edited by hand.
+
+| role | focus | runtime | model | effort | signals | note |
+|---|---|---|---|---|---|---|
+| implementer | - | claude | sonnet | high | none | runtime set by the operator |
+| qa | - | claude | sonnet | medium | none | agent path |
+| verifier | - | claude | sonnet | medium | none | agent path |
+| implementer | - | claude | sonnet | high | none | runtime set by the operator |
+
+## Known Limitations / Follow-up
+
+- docs/design/ARCHITECTURE.md, docs/adr/0005-hosting-cutover-way-back-and-closed-previews.md: both refer to `PRD-CHANGES.md`, which does not exist in the repository -- decision: report (left unchanged)
+- `docs/product/site/REVIEW.md` line 144 still says the baselines are none or old site; it is outside the scope of this task.
+- QA:-: not reproduced (NOT_RERUN)
+
+<!-- proofline:claims:begin -->
+## Verification claims
+
+Generated from the gate records by the publish step and checked again by verify-completion-report; never edited by hand. A gate or check is "ran on the final tree" only when its record carries the fingerprint of the tree being published. No sentence outside this block may claim a visual, browser, screenshot or UI check.
+
+- Gate SECRETS: ran on the final tree: pass (gate SECRETS, record 1)
+- Gate QA: ran on the final tree: pass (gate QA, record 2)
+- Gate VERIFY: ran on the final tree: pass (gate VERIFY, record 5)
+- Visual/browser check: not part of this run (no QA:visual gate); no visual, browser or screenshot check is claimed
+
+Final message line (paste it unchanged): Verification claims (from the ledger): 3 of 3 gates hold a record for the final tree; visual/browser check: not part of this run (no QA:visual gate); no visual, browser or screenshot check is claimed.
+Claims-hash: 8e154184f19302f8b836847e732a99cbb4a2cf57b0e651a5922829e3ca2557b2
+<!-- proofline:claims:end -->
+
+<!-- proofline:facts:begin -->
+## Facts
+
+Generated from the run records by `agent.sh report-facts TASK-042` when the report is published; never edited by hand. Numbers in the text above must match it.
+
+- Class: STANDARD
+- Required gates: 3
+- Gate SECRETS: pass; findings: none
+- Gate QA: pass; findings: none
+- Gate VERIFY: pass; findings: none
+- Friction notes recorded (A200): proofline_bug 0, user-command 0, user-shell 0
+- Knowledge step: not_applicable; not_applicable reason: batch default (A291): no knowledge page was written, the suggestion to the user is in the report
+- Suggestion to the user (knowledge): TASK-042: no knowledge note was written and nothing was changed under docs/, in skills or in rules; the task changed docs/adr/0005-hosting-cutover-way-back-and-closed-previews.md, a documentation path; if you want it kept, write a wiki page or a design-document change yourself, or ask for a documentation task
+- Fix rounds: 0 of 2
+- Refreezes: 0
+- Files changed (task-owned paths): 7
+- Worker-evidence run records: total 0, ended pass 0, ended fail 0 (a RED record ends fail on purpose; this is not a count of failing tests)
+- Test cases: no record carries the number of individual tests, so no such number is stated here.
+<!-- proofline:facts:end -->
+<!-- COMPLETION-REPORT:END:TASK-042 -->
