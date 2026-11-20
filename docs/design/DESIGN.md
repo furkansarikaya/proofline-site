@@ -4,7 +4,7 @@ Status: direction contract written in the promotional design step (`design ui`, 
 
 Approved direction sample (a look reference, not code to copy one to one): [references/direction-c/](references/direction-c/README.md). Where it and this document differ, this document wins.
 
-Surface documents: [DESIGN-marketing.md](DESIGN-marketing.md) (persuade) and the design document of the docs surface (read mode, not written yet). Everything on this page applies to both.
+Surface documents: [DESIGN-marketing.md](DESIGN-marketing.md) (persuade) and [DESIGN-docs.md](DESIGN-docs.md) (read). Everything on this page applies to both.
 
 ## Tokens
 Light and dark are designed separately; neither is derived from the other.
@@ -44,7 +44,7 @@ Type scale (px at 1440 wide; fluid between the mobile and desktop values):
 | step-head | 28 to 40 (`8vw`) | 70 (`4.9vw`, max 70) | page headline, at most two lines |
 | step-h2 | 26 | 36 | section headline |
 | step-lead | 17 | 17 | description |
-| step-body | 15.5 to 17 | 15.5 to 17 | body, at most 75 characters a line |
+| step-body | 15.5 to 17 | 15.5 to 17 | body; on the marketing surface at most 75 characters a line; on the docs surface a text column of `33em` (measured: longest line 75 characters, see DESIGN-docs.md). Never `75ch`: `ch` is the width of a zero, and `75ch` gave lines of about 94 characters |
 | step-small | 13.5 to 15 | 13.5 to 15 | captions, notes |
 | step-mono | 13.5 to 14 | 13.5 to 14 | commands |
 
@@ -80,9 +80,11 @@ These are rules, not suggestions; a page that breaks one fails review.
 2. **Theme.** One button with a sun cell and a moon cell; the cell of the current theme is filled (`--ink` background), so the state does not depend on colour alone. Its accessible name says the current theme and what a press does: "Theme: light. Switch to dark" (Turkish: "Tema: açık. Koyu temaya geç"). The first visit follows the operating system (`prefers-color-scheme`); a saved choice (made by pressing the button) wins afterwards; with no saved choice the page follows later changes of the system setting. The theme is applied before first paint because the controls script is synchronous in `<head>` (PRD N-5). If the script does not run, the theme follows the system setting by CSS and the theme button stays hidden.
 3. **Language.** A link, not a button. On an English page it shows only "TR"; on a Turkish page only "EN". It goes to the same page in the other language; when that page has no translation (FR-17), to the home page of that language. Its name states the language: "TR: read this page in Turkish" (Turkish: "EN: bu sayfayı İngilizce oku"), with `lang` and `hreflang` set to the target language.
 4. **Icons** are SVG files kept in the project (`src/assets/icons/`), drawn with `currentColor` so they follow the theme, and clear in both themes (contrast of the glyph on its ground at least 3:1).
-5. **Touch and keyboard.** Every control is at least 44 by 44 CSS pixels (measured on the sample: GitHub 44x44, language 44x44, theme 88x44, copy 44 high). Every control shows a focus ring (2px, `--accent`, 3px offset) when reached with the keyboard; the tab order is brand, menu links, GitHub, language, theme.
+5. **Touch and keyboard.** Every control is at least 44 by 44 CSS pixels (measured on the sample: GitHub 44x44, language 44x44, theme 88x44, copy 44 high). Every control shows a focus ring (2px, `--accent`, 3px offset) when reached with the keyboard; the tab order is brand, menu links, GitHub, language, theme. On the docs surface a search button sits between the menu links and GitHub (44 by 44 at least; icon, the word "Search" / "Ara" and the key `/` from 820px up).
 6. **One script, 2 KB.** The only script on the four site pages is `/assets/controls.js`: same origin, at most 2048 bytes uncompressed, no inline script, no `async` or `defer`. It does two things: remember the theme (and keep the theme button's accessible name current) and run the copy button. Everything else, including the language link, works without it. The sample page's script is 1462 bytes.
 7. **Order on a phone.** The header wraps (brand and controls on the first row, menu links on the second); the first screen then reads headline, description, install command, diagram.
+8. **Search on the docs surface.** Below 820px the search button leaves the header (it did not fit with the other three controls) and moves to the row of the "Docs" and "On this page" menu buttons (right end, icon only, 44 by 44). The header then keeps brand and the three controls on the first row. The key `/` and Control or Command with K open the search on every docs page whatever the width.
+9. **Scripts on docs pages.** A docs page carries two scripts only: `/assets/docs.js` (same origin, no inline script, no `async` or `defer`, at most 4096 bytes uncompressed; it does what `controls.js` does and also the copy buttons of code blocks, the menus and the search shortcut) and the search script of ADR 0004. `controls.js` is not loaded there, so the theme is applied before first paint by `docs.js` in `<head>`. CI checks the size of `docs.js` and that no other script is on a docs page (ADR 0008). The sample's `docs.js` is 2806 bytes.
 
 ## Accessibility baseline
 - Drawing labels: at least 12 CSS pixels on screen; below 460px viewport width they are hidden and the key sentence under the drawing carries the same information (the gate legend is always shown).
@@ -95,6 +97,7 @@ These are rules, not suggestions; a page that breaks one fails review.
 - none used. (The page does not use a centred title with two buttons and a floating panel, a stat band, a logo wall, a testimonial slider, gradient blobs, glass cards, or all-capitals eyebrow labels.)
 
 ## Gaps
-- Nothing is built yet: every path above marked `planned` is to be created by the implementation tasks. The design document of the docs surface (the `read` surface) is not written.
+- Nothing is built yet: every path above marked `planned` is to be created by the implementation tasks. The docs surface is specified in DESIGN-docs.md.
 - Decided 2026-11-20 (PRD N-5, ADR 0006 and 0008): one small same-origin controls script, at most 2048 bytes uncompressed, for the saved theme and the copy button; CI checks the size and that no other script is on the four pages. Without it the theme follows the system setting and the command is selected by hand.
+- Decided 2026-11-20 (docs surface design): docs pages load `docs.js` (at most 4096 bytes uncompressed) and the search script only; the size check and the "no other script" check run in CI (ADR 0008). The sample's `docs.js` is 2806 bytes; the 4096 limit leaves room for the search wiring.
 - Contrast of the diagram's red box against the teal box is 1.05 (light) and 1.51 (dark): the two states are told apart by shape and label, not by colour or lightness (DESIGN-marketing.md, R-1).
