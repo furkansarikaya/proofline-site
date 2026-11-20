@@ -125,6 +125,7 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 - 0007 Save weekly traffic snapshots to an orphan traffic-data branch, warn after 10 days, and tell the owner by GitHub issues (accepted)
 - 0008 Gate every change with one required CI check that builds twice, checks dist/, runs axe and Lighthouse, and verifies workflow permissions (accepted)
 - 0009 Run browser checks with the Playwright library under node:test, not with the Playwright Test runner (accepted)
+- 0010 Add the contact page at /contact/ and /tr/iletisim/, a last "Contact" menu entry, and plain links with a mailto address (accepted; adds the row `contact` to the address table of ADR 0002 and the header menu entry, built by TASK-026)
 
 ## Q-5 closure
 

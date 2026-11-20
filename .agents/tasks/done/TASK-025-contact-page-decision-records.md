@@ -1,5 +1,7 @@
 # Task: TASK-025 - Contact page decision records
 
+**Status:** done
+
 ---
 origin: prd:site
 type: docs
@@ -90,3 +92,139 @@ COMPLEX - extends a public contract (the address table of ADR 0002) and records 
 - `grep -c 'furkannsarikaya@gmail.com' docs/product/site/PRD.md docs/adr/0010-contact-page-address-and-links.md docs/design/DESIGN-marketing.md`
 - `git diff --stat -- docs/adr/0002-addresses-languages-hreflang-and-titles.md docs/adr/0006-privacy-headers-csp-and-referrer.md docs/design/ARCHITECTURE.md`
 - `npm test`
+
+## Proofline Status
+
+<!-- PROOFLINE-STATUS:BEGIN:TASK-025 -->
+- run: TASK-025
+- type: docs
+- stage: RUNNING (PLANNING, handoff PLANNED)
+- event: run-start
+- updated: 2026-11-20T16:49:10Z
+- runtime: claude
+- session: 8bfe83d7-18e5-44d1-9008-a045f052b9c8
+- estimate: size S
+- duration: 0 min
+<!-- PROOFLINE-STATUS:END:TASK-025 -->
+
+## Completion Report
+
+<!-- COMPLETION-REPORT:BEGIN:TASK-025 -->
+# Completion Report: TASK-025
+
+<!-- proofline:summary:begin -->
+Changed: the owner's decision to add a contact page is recorded in the PRD (note N-6), a new ADR 0010, the ADR index and a Contact page section of the marketing design document; no code changed.
+Verify: `grep -c '^- N-6:' docs/product/site/PRD.md`
+<!-- proofline:summary:end -->
+
+Written by the lead from run evidence only.
+
+## Implementation Summary
+
+- Delivery: nothing is committed; commit and push each need the user's explicit approval (`commit`, `push`)
+- Task: TASK-025 — Contact page decision records; class COMPLEX; tier small; branch `proofline/TASK-025-contact-page-decision-records`
+- Changed: `docs/product/site/PRD.md` (one line N-6, AC-1, AC-2), new `docs/adr/0010-contact-page-address-and-links.md` (AC-3 to AC-7), `docs/adr/README.md` (list of ADRs 0001 to 0010, AC-8), `docs/design/DESIGN-marketing.md` (the word contact in the surface list and a section Contact page, AC-9); AC-10 to AC-12 hold across the four files.
+- Knowledge step: `docs/design/ARCHITECTURE.md` got the ADR 0010 line in its ADR list; its address table is described by ADR 0002 and ADR 0010 together.
+- Not changed, as the task says: ADR 0002, ADR 0006 and the page itself (TASK-026).
+- Decisions the documents record that the owner did not state: the menu entry is the last text entry, before the GitHub icon, the language switch and the theme button; the four links follow the site-wide referrer policy (no `rel="noreferrer"`, so the origin is sent to GitHub, LinkedIn and Medium when a visitor follows a link); the contact page loads the same controls script as the other pages and no other script. The owner can change the referrer choice before TASK-026.
+
+## TDD Evidence
+
+| path | RED | GREEN/FIX | owner |
+|---|---|---|---|
+| `docs/product/site/PRD.md` | exempt: documents only, no executable behaviour | grep and diff checks pass | implementer |
+| `docs/adr/0010-contact-page-address-and-links.md` | exempt: documents only | grep checks pass | implementer |
+| `docs/adr/README.md` | exempt: documents only | index loop and link check pass | implementer |
+| `docs/design/DESIGN-marketing.md` | exempt: documents only | section checks pass | implementer |
+
+## Verification
+
+- VERIFY: PASS (high); commands: the seven plan commands (the N-6, title, index and heading counts, the e-mail count, the diff of ADR 0002, ADR 0006 and the overview, and `npm test`)
+
+## Assumptions
+
+- AS-2 (low): in "last menu entry" the menu means the text entries of the header menu — unverified in the plan register; ADR 0010 states the placement.
+- AS-3 (low): the contact page loads the same controls script and the links follow the site-wide referrer policy — unverified in the plan register; ADR 0010 states it, the owner can change it.
+
+## Review Result
+
+| gate | status | confidence | fix round | findings |
+|---|---|---|---|---|
+| SECRETS | pass | high | 0 | none |
+| REVIEW_SMALL | pass | high | 0 | REVIEW_SMALL-1 REVIEW_SMALL-2 REVIEW_SMALL-3 REVIEW_SMALL-4 |
+| QA | pass | high | 0 | QA-1 QA-2 QA-3 |
+| VERIFY | pass | high | 0 | VERIFY-1 VERIFY-2 |
+
+Fix rounds used: 0 of 2.
+
+- REVIEW_SMALL: REVIEW_SMALL-1 to REVIEW_SMALL-4 info: the link-existence check prints a false MISSING for the existing link to DESIGN.md on edited line 3 of the design document; the value strings of one check are typed by hand; ADR 0008 allows the controls script only on four site pages, so TASK-026 must change ADR 0008 and the dist check for a fifth page; ADR 0002 still calls its address table complete until the overview is read with ADR 0010.
+- QA: QA-1 to QA-3 info: the false MISSING of the link check, a line of the PRD that was already in the base and matches an extra grep, and a count in one mutation scenario that differed from the plan guess.
+- VERIFY: VERIFY-1 to VERIFY-2 info: the overview did not yet list ADR 0010 or the new addresses (the ADR line was added in the knowledge step), and the plan commands cited for some criteria are the closest of the seven.
+
+- REVIEW_SMALL:rules+tests: not reproduced (NOT_RERUN)
+- QA:-: not reproduced (NOT_RERUN)
+
+## QA Result
+
+QA: PASS (high); all 28 frozen scenarios passed, including the single-character mutations of the four values, the whole-file rewrite and line-ending cases, and the untouched ADRs.
+
+## Unsupported Checks
+
+- REVIEW_SMALL:contract: the contract tool recognized no contract file because the four changed paths are Markdown decision records, not an API, event or data contract; not proven: a machine comparison of the address table change (the additive row, the menu order and the consistency with ADR 0002 and ADR 0006 were reviewed by hand)
+
+## Execution
+
+Generated from the decision records by `agent.sh report-execution TASK-025` when the report is published; never edited by hand.
+
+| role | focus | runtime | model | effort | signals | note |
+|---|---|---|---|---|---|---|
+| architect | - | claude | opus | high | none | agent path |
+| implementer | - | claude | sonnet | high | none | runtime set by the operator |
+| qa | - | claude | sonnet | medium | none | agent path |
+| verifier | - | claude | sonnet | medium | none | agent path |
+
+## Known Limitations / Follow-up
+
+- TASK-026 must change ADR 0008 and the dist check, which allow the controls script only on four site pages, before the contact page can carry it.
+- The PRD now has 29 decision tags (N-6 is tagged); the count of 28 in the TASK-042 task file is stale and belongs to that task.
+- A public contact address in a public repository and page can attract spam; the owner chose it (PRD N-6).
+
+## Execution
+
+<!-- proofline:claims:begin -->
+## Verification claims
+
+Generated from the gate records by the publish step and checked again by verify-completion-report; never edited by hand. A gate or check is "ran on the final tree" only when its record carries the fingerprint of the tree being published. No sentence outside this block may claim a visual, browser, screenshot or UI check.
+
+- Gate SECRETS: ran on the final tree: pass (gate SECRETS, record 1)
+- Gate REVIEW_SMALL: ran on the final tree: pass (gate REVIEW_SMALL, record 5)
+- Check REVIEW_SMALL:contract: unsupported: it could not run here (focus REVIEW_SMALL:contract, record 2); nothing is claimed
+- Gate QA: ran on the final tree: pass (gate QA, record 3)
+- Gate VERIFY: ran on the final tree: pass (gate VERIFY, record 6)
+- Visual/browser check: not part of this run (no QA:visual gate); no visual, browser or screenshot check is claimed
+
+Final message line (paste it unchanged): Verification claims (from the ledger): 4 of 4 gates hold a record for the final tree; visual/browser check: not part of this run (no QA:visual gate); no visual, browser or screenshot check is claimed.
+Claims-hash: d97eea9588b50f14672a10ca9544f897a3e28cfce6b6c6795aa62d03fc8b228d
+<!-- proofline:claims:end -->
+
+<!-- proofline:facts:begin -->
+## Facts
+
+Generated from the run records by `agent.sh report-facts TASK-025` when the report is published; never edited by hand. Numbers in the text above must match it.
+
+- Class: COMPLEX
+- Required gates: 4
+- Gate SECRETS: pass; findings: none
+- Gate REVIEW_SMALL: pass (unsupported: contract); findings: REVIEW_SMALL-1 REVIEW_SMALL-2
+  - Focus REVIEW_SMALL:contract: unsupported; findings: REVIEW_SMALL-1 REVIEW_SMALL-2 REVIEW_SMALL-3 REVIEW_SMALL-4
+- Gate QA: pass; findings: QA-1 QA-2 QA-3
+- Gate VERIFY: pass; findings: VERIFY-1 VERIFY-2
+- Friction notes recorded (A200): proofline_bug 0, user-command 0, user-shell 0
+- Knowledge step: KNOWLEDGE_DONE
+- Fix rounds: 0 of 2
+- Refreezes: 0
+- Files changed (task-owned paths): 4
+- Worker-evidence run records: total 0, ended pass 0, ended fail 0 (a RED record ends fail on purpose; this is not a count of failing tests)
+- Test cases: no record carries the number of individual tests, so no such number is stated here.
+<!-- proofline:facts:end -->
+<!-- COMPLETION-REPORT:END:TASK-025 -->

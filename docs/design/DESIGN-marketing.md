@@ -1,6 +1,6 @@
 # Design: marketing surface (persuade)
 
-Surface `marketing` of `design_docs.design` (home, get started, trust, Claude Code and Codex, not found; English and Turkish). Base: [DESIGN.md](DESIGN.md). Written as the direction contract of the chosen direction C "the quiet instrument"; to be updated after the build.
+Surface `marketing` of `design_docs.design` (home, get started, trust, Claude Code and Codex, contact, not found; English and Turkish). Base: [DESIGN.md](DESIGN.md). Written as the direction contract of the chosen direction C "the quiet instrument"; to be updated after the build.
 
 Approved direction sample: [references/direction-c/](references/direction-c/README.md) (the first screen and one lower section, English and Turkish, light and dark, desktop and mobile). It is a look reference, not code to copy one to one; where it and this document differ, this document wins.
 
@@ -64,6 +64,14 @@ The limits section of the home page and the trust page must say, together and in
 | Copied | A polite live region announces "Copied" / "Kopyalandı" and the button shows a check mark for under two seconds. When the clipboard is refused the command is selected and the region says so. |
 | Reduced motion | The diagram is a still frame. |
 | Narrow (phone) | Order: headline, description, install command, diagram, key, legend; the diagram frame keeps 12px rails; below 460px the drawing labels are hidden (R-7); command lines wrap instead of scrolling. |
+
+## Contact page
+- Surface `marketing`; decided by the product owner (PRD N-6, ADR 0010). Addresses `/contact/` and `/tr/iletisim/`; page titles "Contact" and "İletişim" (ADR 0002 point 5).
+- Content: four links in this order: GitHub `https://github.com/furkansarikaya`, LinkedIn `https://www.linkedin.com/in/furkansarikaya`, Medium `https://furkansarikaya.medium.com/`, e-mail `mailto:furkannsarikaya@gmail.com`, whose link text is the address itself. No form, no embedded profile, widget or third-party image (ADR 0006). Both languages show the same links.
+- Menu: "Contact" ("İletişim") is the last menu entry, after "Claude Code and Codex" and before the GitHub icon, the language link and the theme button.
+- Targets: each of the four links is at least 44 by 44 CSS pixels and shows the focus ring of DESIGN.md header controls rule 5.
+- Look: no new token. Type scale and the 1px grid hairlines as in DESIGN.md (Typography, Spacing) and the layout rules above (no cards, no shadows). The page content needs no script; only the header's controls script loads (ADR 0010).
+- The page is not drawn: there is no sample or screenshot; it follows the rules above, and a design pass may follow once TASK-026 has built it. Interface wording other than the titles and the menu word belongs to TASK-026 (ADR 0002 point 8).
 
 ## Gaps
 - The trust page and the other three pages are not designed here; they follow these rules and are specified by their own tasks.
