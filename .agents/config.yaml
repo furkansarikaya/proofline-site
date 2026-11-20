@@ -16,7 +16,7 @@ runtime:
   reviewers: claude
   # Optional per-role override, for example `security_reviewer: claude`.
   roles:
-    implementer: codex
+    implementer: claude
 # Specialist failover (D7): auto | ask | off.
 failover: auto
 # supervised: freeze needs a plan approval. autonomous: no stop before CODE_DONE (D3).
