@@ -1,6 +1,6 @@
 # 0007. Save weekly traffic snapshots to an orphan `traffic-data` branch, warn after 10 days, and tell the owner by GitHub issues
 
-Status: accepted
+Status: superseded by the product owner's decision of 2026-11-20 (PRD L-4): the traffic snapshot job is removed and traffic is read by hand; nothing here is built
 Date: 2026-11-19
 
 ## Context
