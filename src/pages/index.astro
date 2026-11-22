@@ -1,9 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
+
+const lead = 'This is a placeholder page; the content arrives in a later task.';
 ---
 
-<Base lang="en" title="Proofline">
+<Base path="/" title={{ kind: 'home' }} lead={lead}>
   <h1>Proofline</h1>
-  <p>This is a placeholder page; the content arrives in a later task.</p>
+  <p>{lead}</p>
   <p><a href="/tr/" lang="tr">Türkçe</a></p>
 </Base>

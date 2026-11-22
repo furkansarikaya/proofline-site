@@ -1,9 +1,11 @@
 ---
 import Base from '../../layouts/Base.astro';
+
+const lead = 'Bu bir yer tutucu sayfadır; içerik sonraki bir görevde gelecek.';
 ---
 
-<Base lang="tr" title="Proofline">
+<Base path="/tr/" title={{ kind: 'home' }} lead={lead}>
   <h1>Proofline</h1>
-  <p>Bu bir yer tutucu sayfadır; içerik sonraki bir görevde gelecek.</p>
+  <p>{lead}</p>
   <p><a href="/" lang="en">English</a></p>
 </Base>

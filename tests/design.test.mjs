@@ -457,8 +457,38 @@ describe('built site', () => {
 
   const pages = () => walk(outDir).filter((f) => f.endsWith('.html'));
 
+  // The page head of TASK-004 prints absolute addresses that name the site, not a resource to load: the og:* content, the
+  // link rel="alternate" hrefs and the JSON-LD block. Only these three are removed before the host scan of a built page;
+  // any other http(s) address in a built page (a stylesheet, script, image or font from another host) still fails.
+  const withoutHeadMetadata = (html) => {
+    const $ = load(html);
+    $('script[type="application/ld+json"]').remove();
+    $('meta[property^="og:"]').removeAttr('content');
+    $('link[rel="alternate"]').removeAttr('href');
+    return $.html();
+  };
+
   it('styles and dist hold no external host, no import and no foreign url', { timeout: 120000 }, () => {
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
+    const probe = withoutHeadMetadata([
+      '<html><head>',
+      '<meta property="og:image" content="https://proofline.technology/og-default.png">',
+      '<link rel="alternate" hreflang="en" href="https://proofline.technology/">',
+      '<script type="application/ld+json">{"@context":"https://schema.org"}</script>',
+      '<link rel="stylesheet" href="https://cdn.example/a.css"><img src="http://img.example/b.png" alt="">',
+      '<link rel="alternate stylesheet" href="https://cdn.example/c.css"><meta name="x" content="https://cdn.example/d">',
+      '</head><body></body></html>',
+    ].join(''));
+    assert.doesNotMatch(probe, /proofline\.technology|schema\.org/, 'the og content, the alternate hrefs and the JSON-LD block are skipped');
+    for (const kept of ['https://cdn.example/a.css', 'http://img.example/b.png', 'https://cdn.example/c.css', 'https://cdn.example/d']) {
+      assert.ok(probe.includes(kept), `any other address stays in the scan: ${kept}`);
+    }
+    for (const rel of ['index.html', 'tr/index.html']) {
+      const raw = existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '';
+      for (const needed of ['property="og:image" content="https://proofline.technology/og-default.png"', 'rel="alternate"', 'application/ld+json']) {
+        assert.ok(raw.includes(needed), `dist/${rel} holds the head metadata the scan skips: ${needed}`);
+      }
+    }
     const files = [
       ...styleFiles().map((f) => [f, read(f)]),
       ['src/layouts/Base.astro', read('src/layouts/Base.astro')],
@@ -467,7 +497,7 @@ describe('built site', () => {
     assert.ok(files.some(([f]) => f.endsWith('.css') && f.startsWith('dist/')), 'the build emitted a stylesheet');
     assert.ok(files.length >= 7, 'the scan read the sources and the built files');
     for (const [name, raw] of files) {
-      const text = name.endsWith('.css') ? stripComments(raw) : raw;
+      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutHeadMetadata(raw) : raw;
       assert.doesNotMatch(text, /https?:\/\//i, `${name} names no host`);
       assert.doesNotMatch(text, /@import/i, `${name} has no @import`);
       for (const m of text.matchAll(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi)) {

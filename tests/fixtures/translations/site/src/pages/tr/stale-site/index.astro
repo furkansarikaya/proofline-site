@@ -1,0 +1,10 @@
+---
+// A site-written Turkish page whose recorded hash is wrong: the build warns naming this page and still exits 0.
+import Base from '../../../../../../../../src/layouts/Base.astro';
+
+const translatedFrom = { page: 'tests/fixtures/translations/content/en/page.md', hash: 'abababababababababababababababababababababababababababababababab' };
+---
+
+<Base path="/tr/stale-site/" title={{ kind: 'site', text: 'Eski sayfa' }} lead="Güncel olmayan, site için yazılmış bir sayfanın fixture sayfası." source={{ kind: 'site', translatedFrom }}>
+  <h1>Eski sayfa</h1>
+</Base>

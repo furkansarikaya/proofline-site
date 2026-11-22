@@ -1,4 +1,4 @@
-// Node tests for the static site skeleton (TASK-001). `node --test` discovers only this file.
+// Node tests for the static site skeleton (TASK-001) and the page head contract (TASK-004). This is the only file that builds the real dist/.
 // The "built site" group builds once, then asserts the real output; the other tests use fixtures generated in temp directories.
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,6 +16,12 @@ import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const PAGES = ['index.html', 'tr/index.html', '404.html'];
+const ORIGIN = 'https://proofline.technology';
+const BRAND = {
+  en: 'proofline: a deterministic engineering team for Claude Code and Codex',
+  tr: 'proofline: Claude Code ve Codex için deterministik bir mühendislik ekibi',
+};
+const PHRASE = { en: 'a deterministic engineering team for Claude Code and Codex', tr: 'Claude Code ve Codex için deterministik bir mühendislik ekibi' };
 const SKIP_LINE = 'performance checks skipped: the Lighthouse budgets arrive with the performance task';
 
 sweepStale();
@@ -234,7 +240,7 @@ describe('built site', () => {
     assert.ok(notFound('a[href="/tr/"]').length >= 1, '404 links to /tr/');
   });
 
-  it('pages hold one heading, a sentence, zero scripts and the same head structure', () => {
+  it('pages hold one heading, a sentence and the same head structure', () => {
     const signatures = [];
     for (const rel of PAGES) {
       const $ = page(rel);
@@ -248,8 +254,76 @@ describe('built site', () => {
     assert.deepEqual(signatures[0], ['meta[charset]', 'meta[name=viewport]', 'meta[name=robots]', 'title']);
     assert.deepEqual(signatures[1], signatures[0]);
     assert.deepEqual(signatures[2], signatures[0]);
+  });
+
+  it('only the home pages hold the JSON-LD WebSite block', () => {
+    const homes = { 'index.html': 'en', 'tr/index.html': 'tr' };
     for (const rel of walk(dist).filter((f) => f.endsWith('.html'))) {
-      assert.equal(page(rel)('script').length, 0, `${rel} holds no script element`);
+      const $ = page(rel);
+      if (!(rel in homes)) {
+        assert.equal($('script').length, 0, `${rel} holds no script element`);
+        continue;
+      }
+      assert.equal($('script').length, 1, `${rel} holds exactly one script element`);
+      assert.equal($('script[type="application/ld+json"]').length, 1, `${rel} holds one application/ld+json block`);
+      const data = JSON.parse($('script[type="application/ld+json"]').text());
+      assert.equal(data['@type'], 'WebSite');
+      assert.equal(data.name, BRAND[homes[rel]]);
+    }
+  });
+
+  it('every page head carries description and og tags', () => {
+    const langs = { 'index.html': 'en', 'tr/index.html': 'tr', '404.html': 'en' };
+    for (const rel of PAGES) {
+      const $ = page(rel);
+      assert.ok($, `${rel} is built`);
+      const lang = langs[rel];
+      const title = $('title').text();
+      const description = $('meta[name="description"]').attr('content') ?? '';
+      assert.equal($('meta[name="description"]').length, 1, `${rel} holds one description`);
+      assert.ok(Array.from(description).length >= 70 && Array.from(description).length <= 160, `${rel} description is 70 to 160 characters: ${description}`);
+      assert.ok(description.endsWith(` ${BRAND[lang]}.`), `${rel} description ends with the name and phrase of ${lang}`);
+      assert.ok(title.endsWith(PHRASE[lang]), `${rel} title carries the phrase of ${lang}`);
+      assert.equal($('meta[property="og:title"]').attr('content'), title, `${rel} og:title equals the title`);
+      assert.equal($('meta[property="og:description"]').attr('content'), description, `${rel} og:description equals the description`);
+      assert.equal($('meta[property="og:image"]').attr('content'), `${ORIGIN}/og-default.png`);
+      assert.equal($('meta[property="og:image:alt"]').attr('content'), BRAND[lang], `${rel} image alternative text is the name and phrase of ${lang}`);
+    }
+    assert.equal(page('index.html')('title').text(), BRAND.en);
+    assert.equal(page('tr/index.html')('title').text(), BRAND.tr);
+    assert.equal(page('404.html')('title').text(), `Page not found | Sayfa bulunamadı | ${BRAND.en}`);
+  });
+
+  it('preview image is a 1200 by 630 PNG that ships to dist', () => {
+    const source = join(root, 'public', 'og-default.png');
+    assert.ok(existsSync(source), 'public/og-default.png exists');
+    const png = readFileSync(source);
+    assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'PNG signature');
+    assert.equal(png.subarray(12, 16).toString('latin1'), 'IHDR');
+    assert.equal(png.readUInt32BE(16), 1200, 'width');
+    assert.equal(png.readUInt32BE(20), 630, 'height');
+    assert.ok(existsSync(join(dist, 'og-default.png')), 'dist/og-default.png exists');
+    assert.ok(readFileSync(join(dist, 'og-default.png')).equals(png), 'dist/og-default.png is the same file');
+  });
+
+  it('home pages hold equal en, tr and x-default alternates', () => {
+    const expected = [['en', `${ORIGIN}/`], ['tr', `${ORIGIN}/tr/`], ['x-default', `${ORIGIN}/`]];
+    const sets = ['index.html', 'tr/index.html'].map((rel) => {
+      const $ = page(rel);
+      return $('link[rel="alternate"][hreflang]').toArray().map((el) => [el.attribs.hreflang, el.attribs.href]);
+    });
+    assert.deepEqual(sets[0], expected);
+    assert.deepEqual(sets[1], sets[0], 'the set on one page equals the set on the other');
+  });
+
+  it('pages without a pair hold no hreflang and every html lang matches its address', () => {
+    assert.equal(page('404.html')('link[hreflang]').length, 0, '404.html holds 0 hreflang tags');
+    for (const rel of ['index.html', 'tr/index.html']) assert.equal(page(rel)('link[hreflang]').length, 3, `${rel} is paired, so it holds the three tags`);
+    const files = walk(dist).filter((f) => f.endsWith('.html'));
+    assert.ok(files.length >= 3);
+    for (const rel of files) {
+      const expected = rel === 'tr/index.html' || rel.startsWith('tr/') ? 'tr' : 'en';
+      assert.equal(page(rel)('html').attr('lang'), expected, `${rel} has lang ${expected}`);
     }
   });
 

@@ -1,0 +1,10 @@
+---
+// A site-written page title of exactly 40 characters; PROOFLINE_FIXTURE_TITLE_41=1 makes it 41, which must fail the build naming this page.
+import Base from '../../../../../../../../src/layouts/Base.astro';
+
+const text = 'a'.repeat(process.env.PROOFLINE_FIXTURE_TITLE_41 === '1' ? 41 : 40);
+---
+
+<Base path="/titles/site-40/" title={{ kind: 'site', text }} lead="A fixture page whose site-written title sits on the forty character limit.">
+  <h1>Site title limit</h1>
+</Base>

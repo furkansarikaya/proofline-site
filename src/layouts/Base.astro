@@ -1,13 +1,26 @@
 ---
 import '../styles/tokens.css';
 import '../styles/base.css';
+import { buildHead } from '../lib/meta.ts';
+import type { PageTitle } from '../lib/meta.ts';
+import { alternates, checkStale, langOf } from '../lib/translations.ts';
+import type { StaleSource } from '../lib/translations.ts';
 
 interface Props {
-  lang: 'en' | 'tr';
-  title: string;
+  path: string;
+  title: PageTitle;
+  lead: string;
+  source?: StaleSource;
 }
 
-const { lang, title } = Astro.props;
+const { path, title, lead, source } = Astro.props;
+
+// Every head value comes from one place: the builders of src/lib/meta.ts and the one translation index of src/lib/translations.ts.
+const lang = langOf(path);
+const head = buildHead({ page: path, lang, title, lead });
+const links = alternates(path);
+// The stale flag is kept for the notice of the Turkish guides (TASK-013); this layout only prints the build warning.
+if (source) checkStale(path, source);
 ---
 
 <!doctype html>
@@ -16,7 +29,14 @@ const { lang, title } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>{title}</title>
+    <title>{head.title}</title>
+    <meta name="description" content={head.description} />
+    <meta property="og:title" content={head.title} />
+    <meta property="og:description" content={head.description} />
+    <meta property="og:image" content={head.ogImage} />
+    <meta property="og:image:alt" content={head.ogImageAlt} />
+    {links.map((link) => <link rel="alternate" hreflang={link.hreflang} href={link.href} />)}
+    {head.jsonLd && <script type="application/ld+json" is:inline set:html={head.jsonLd}></script>}
   </head>
   <body>
     <main><slot /></main>
