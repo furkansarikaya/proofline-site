@@ -1,0 +1,10 @@
+---
+// A synced page whose H1 has 49 characters: the full title is 121 characters, so the build prints one warning naming this page and still exits 0.
+import Base from '../../../../../../../../src/layouts/Base.astro';
+
+const h1 = 'H'.repeat(49);
+---
+
+<Base path="/titles/synced-121/" title={{ kind: 'synced', h1 }} lead="A fixture page whose synced title is one hundred and twenty one characters.">
+  <h1>{h1}</h1>
+</Base>

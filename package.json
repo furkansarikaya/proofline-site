@@ -9,6 +9,7 @@
     "build": "node scripts/sync.mjs fetch && astro build",
     "sync": "node scripts/sync.mjs fetch",
     "sync:lock": "node scripts/sync.mjs lock",
+    "translation:stamp": "node scripts/translation-stamp.mjs",
     "test": "node --test",
     "check:determinism": "node scripts/check-dist.mjs determinism",
     "check:links": "node scripts/check-dist.mjs links dist",

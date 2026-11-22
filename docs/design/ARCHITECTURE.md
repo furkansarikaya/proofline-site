@@ -61,7 +61,7 @@ Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19)
 | C15 | C16 | `.cache/sync/<commit>/` tree of the locked files + `listing.tsv` (one `path<TAB>type<TAB>blob` line per archive file and directory, sorted, LF-terminated, directories with an empty blob; its sha256 is the lock's `tree_sha256`); address the folder by the pinned commit and never list `.cache/sync/`, which may hold leftover `<commit>.tmp-*` or `<commit>.bad-*` folders of a killed fetch | C15 -> C16 |
 | C16 | C19 | page manifest `[{source, address, lang, title, description, html, md_path, translated_from?, headings[]}]` | C16 -> C19 |
 | C17 | C19 | pin facts `{version, figures_date, does_not_prove_id, not_proven_sentence, codex_sentence, readme_commands[], readme_inline_spans[], commit, tag}` | C17 -> C19 |
-| C18 | C19 | `alternates(page)`, `switcherTarget(page)`, `isStale(page)` | C18 -> C19 |
+| C18 | C19 | `alternates(page)`, `switcherTarget(page)`, `isStale(source, options)`, `checkStale(page, source, options)` | C18 -> C19 |
 | C19 | C20 | `dist/` HTML with `<html lang>` and `data-pagefind-body` | C19 -> C20 |
 | C20 | C21 | `dist/` incl. `dist/pagefind/` | C20 -> C21 |
 | C21 | C7 | lock counts vs built pages (AC-41) | C7 -> C21 |
@@ -123,6 +123,7 @@ Public contracts (`contract_change` none today, all new): the address table (sea
 - 0008 Gate every change with one required CI check that builds twice, checks dist/, runs axe and Lighthouse, and verifies workflow permissions (accepted)
 - 0009 Run browser checks with the Playwright library under node:test, not with the Playwright Test runner (accepted)
 - 0010 Add the contact page at /contact/ and /tr/iletisim/, a last "Contact" menu entry, and plain links with a mailto address (accepted; adds the row `contact` to the address table of ADR 0002 and the header menu entry, built by TASK-026)
+- 0011 Register each site-written page pair as one entry of the translation index (accepted; narrows ADR 0002 point 3 for site-written pages: pairs are entries of `PAIRS` in `src/lib/translations.ts`, built by TASK-004)
 
 ## Q-5 closure
 

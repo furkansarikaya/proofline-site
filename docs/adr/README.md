@@ -14,3 +14,4 @@ Each entry links the file and gives its title and, in brackets, the first word o
 - [0008. Gate every change with one required CI check that builds twice, checks dist/, runs axe and Lighthouse, and verifies workflow permissions](0008-ci-checks-budgets-and-workflow-permissions.md) [accepted]
 - [0009. Run browser checks with the Playwright library under node:test](0009-browser-checks-with-the-playwright-library-under-node-test.md) [accepted]
 - [0010. Add the contact page at /contact/ and /tr/iletisim/, a last "Contact" menu entry, and plain links with a mailto address](0010-contact-page-address-and-links.md) [accepted]
+- [0011. Register each site-written page pair as one entry of the translation index](0011-translation-index-pairs-are-index-entries.md) [accepted]

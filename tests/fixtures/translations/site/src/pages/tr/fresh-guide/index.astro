@@ -1,0 +1,15 @@
+---
+// A Turkish guide whose recorded blob id equals the blob id of its English file: no warning.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import Base from '../../../../../../../../src/layouts/Base.astro';
+import { blobId } from '../../../../../../../../scripts/lib/lock.mjs';
+
+const guides = join(process.cwd(), 'tests', 'fixtures', 'translations', 'guides');
+const recordedBlob = /blob:\s*([0-9a-f]{40})/.exec(readFileSync(join(guides, 'tr-fresh.md'), 'utf8'))?.[1] ?? '';
+const englishBlob = blobId(readFileSync(join(guides, 'en.md')));
+---
+
+<Base path="/tr/fresh-guide/" title={{ kind: 'site', text: 'Güncel kılavuz' }} lead="Güncel bir çevirinin fixture sayfası." source={{ kind: 'guide', recordedBlob, englishBlob }}>
+  <h1>Güncel kılavuz</h1>
+</Base>
