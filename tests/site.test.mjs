@@ -16,11 +16,11 @@ import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
-const PAGES = ['index.html', 'tr/index.html', '404.html', 'get-started/index.html', 'tr/baslarken/index.html'];
-// The script rule (TASK-005, TASK-021): the two home pages hold the JSON-LD block and the controls script, the two get-started pages hold the controls script only
-// (the header theme button needs it), named by address and never by a pattern; every other page holds no script.
+const PAGES = ['index.html', 'tr/index.html', '404.html', 'get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html'];
+// The script rule (TASK-005, TASK-021, TASK-023): the two home pages hold the JSON-LD block and the controls script, the two get-started pages and the two Claude Code and Codex pages
+// hold the controls script only (the header theme button needs it), named by address and never by a pattern; every other page holds no script.
 const HOMES = { 'index.html': 'en', 'tr/index.html': 'tr' };
-const CONTROLS_ONLY = new Set(['get-started/index.html', 'tr/baslarken/index.html']);
+const CONTROLS_ONLY = new Set(['get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html']);
 const ORIGIN = 'https://proofline.technology';
 const BRAND = {
   en: 'proofline: a deterministic engineering team for Claude Code and Codex',
@@ -263,10 +263,10 @@ describe('built site', () => {
     build = { status: r.status, stderr: r.stderr ?? '', output: `${r.stdout ?? ''}${r.stderr ?? ''}` };
   }, { timeout: 120000 });
 
-  it('build emits exactly index.html, tr/index.html and 404.html plus get-started/index.html and tr/baslarken/index.html', () => {
+  it('build emits exactly index.html, tr/index.html and 404.html plus the get-started pages and the Claude Code and Codex pages', () => {
     assert.equal(build.status, 0, `npm run build must exit 0: ${build.stderr.slice(-400)}`);
     const html = walk(dist).filter((f) => f.endsWith('.html'));
-    assert.deepEqual(html, ['404.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/index.html']);
+    assert.deepEqual(html, ['404.html', 'claude-code-and-codex/index.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/claude-code-ve-codex/index.html', 'tr/index.html']);
   });
 
   it('language roots link to each other and the 404 page holds both language blocks', () => {
@@ -298,17 +298,24 @@ describe('built site', () => {
     assert.deepEqual(signatures[2], signatures[0]);
     assert.deepEqual(signatures[3], signatures[0]);
     assert.deepEqual(signatures[4], signatures[0]);
+    assert.deepEqual(signatures[5], signatures[0]);
+    assert.deepEqual(signatures[6], signatures[0]);
+    assert.equal(signatures.length, 7, 'the head structure of every built page is read');
   });
 
-  it('home pages hold the JSON-LD block and the one controls script, the two get-started pages only the controls script and other pages no script', () => {
+  it('home pages hold the JSON-LD block and the one controls script, the four get-started and agents pages only the controls script and other pages no script', () => {
     const built = walk(dist).filter((f) => f.endsWith('.html'));
     for (const rel of [...Object.keys(HOMES), ...CONTROLS_ONLY]) assert.ok(built.includes(rel), `${rel} is built`);
     for (const rel of built) assertScripts(rel, page(rel));
+    // The rule names exactly four pages by explicit path: of the built pages, exactly the two homes and these four load the controls script, no other page does.
+    const FOUR = ['get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html'];
+    assert.deepEqual([...CONTROLS_ONLY].sort(), [...FOUR].sort(), 'the rule names exactly the four pages');
+    assert.deepEqual(built.filter((rel) => page(rel)('script[src="/assets/controls.js"]').length > 0), [...FOUR, ...Object.keys(HOMES)].sort(), 'only the homes and the four pages load the controls script');
     // The rule itself, on probe pages: each broken rule fails naming the page, the two get-started addresses pass with the controls script only.
     const head = (inner, body = '') => load(`<html><head><meta charset="utf-8">${inner}</head><body><p>x</p>${body}</body></html>`);
     const CONTROLS = '<script src="/assets/controls.js"></script>';
     const ld = (lang) => `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebSite', name: BRAND[lang] })}</script>`;
-    for (const rel of CONTROLS_ONLY) assert.doesNotThrow(() => assertScripts(rel, head(CONTROLS)), `${rel} passes with the controls script only`);
+    for (const rel of FOUR) assert.doesNotThrow(() => assertScripts(rel, head(CONTROLS)), `${rel} passes with the controls script only`);
     for (const [rel, lang] of Object.entries(HOMES)) assert.doesNotThrow(() => assertScripts(rel, head(`${ld(lang)}${CONTROLS}`)), `${rel} passes with the JSON-LD block and the controls script`);
     assert.doesNotThrow(() => assertScripts('404.html', head('')), '404.html passes with no script');
     const broken = [
@@ -320,6 +327,14 @@ describe('built site', () => {
       ['get-started/index.html', head(`${CONTROLS}<script>void 0</script>`), /get-started\/index\.html holds the controls script only/],
       ['get-started/index.html', head(`${ld('en')}${CONTROLS}`), /get-started\/index\.html holds no application\/ld\+json block/],
       ['get-started/index.html', head(ld('en')), /get-started\/index\.html holds no application\/ld\+json block/],
+      ['claude-code-and-codex/other/index.html', head(CONTROLS), /claude-code-and-codex\/other\/index\.html holds no script element/],
+      ['tr/claude-code-ve-codex/x.html', head(CONTROLS), /tr\/claude-code-ve-codex\/x\.html holds no script element/],
+      ['claude-code-and-codex/index.html', head(''), /claude-code-and-codex\/index\.html holds the controls script only/],
+      ['claude-code-and-codex/index.html', head(`${CONTROLS}<script>void 0</script>`), /claude-code-and-codex\/index\.html holds the controls script only/],
+      ['claude-code-and-codex/index.html', head(`${ld('en')}${CONTROLS}`), /claude-code-and-codex\/index\.html holds no application\/ld\+json block/],
+      ['tr/claude-code-ve-codex/index.html', head(''), /tr\/claude-code-ve-codex\/index\.html holds the controls script only/],
+      ['tr/claude-code-ve-codex/index.html', head(`${ld('tr')}${CONTROLS}`), /tr\/claude-code-ve-codex\/index\.html holds no application\/ld\+json block/],
+      ['tr/claude-code-ve-codex/index.html', head('', CONTROLS), /tr\/claude-code-ve-codex\/index\.html: the controls script is in the head/],
       ['tr/baslarken/index.html', head('<script src="/assets/other.js"></script>'), /tr\/baslarken\/index\.html: the controls script is in the head/],
       ['tr/baslarken/index.html', head('', CONTROLS), /tr\/baslarken\/index\.html: the controls script is in the head/],
       ['tr/baslarken/index.html', head('<script src="/assets/controls.js">void 0</script>'), /tr\/baslarken\/index\.html: the controls script has no body/],
@@ -350,11 +365,13 @@ describe('built site', () => {
   });
 
   it('every page head carries description and og tags', () => {
-    const langs = { 'index.html': 'en', 'tr/index.html': 'tr', '404.html': 'en', 'get-started/index.html': 'en', 'tr/baslarken/index.html': 'tr' };
+    const langs = { 'index.html': 'en', 'tr/index.html': 'tr', '404.html': 'en', 'get-started/index.html': 'en', 'tr/baslarken/index.html': 'tr', 'claude-code-and-codex/index.html': 'en', 'tr/claude-code-ve-codex/index.html': 'tr' };
+    assert.deepEqual(Object.keys(langs).sort(), [...PAGES].sort(), 'the language map names every built page');
     for (const rel of PAGES) {
       const $ = page(rel);
       assert.ok($, `${rel} is built`);
       const lang = langs[rel];
+      assert.equal($('html').attr('lang'), lang, `${rel} is written in ${lang}`);
       const title = $('title').text();
       const description = $('meta[name="description"]').attr('content') ?? '';
       assert.equal($('meta[name="description"]').length, 1, `${rel} holds one description`);
@@ -395,9 +412,10 @@ describe('built site', () => {
 
   it('pages without a pair hold no hreflang and every html lang matches its address', () => {
     assert.equal(page('404.html')('link[hreflang]').length, 0, '404.html holds 0 hreflang tags');
-    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html']) assert.equal(page(rel)('link[hreflang]').length, 3, `${rel} is paired, so it holds the three tags`);
+    const PAIRED = ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html'];
+    for (const rel of PAIRED) assert.equal(page(rel)('link[hreflang]').length, 3, `${rel} is paired, so it holds the three tags`);
     const files = walk(dist).filter((f) => f.endsWith('.html'));
-    assert.ok(files.length >= 3);
+    assert.equal(files.length, PAIRED.length + 1, 'every built page but the 404 page is paired');
     for (const rel of files) {
       const expected = rel === 'tr/index.html' || rel.startsWith('tr/') ? 'tr' : 'en';
       assert.equal(page(rel)('html').attr('lang'), expected, `${rel} has lang ${expected}`);
