@@ -61,7 +61,7 @@ function parseDecls(body) {
   });
 }
 
-/** Flat list of { at: [media conditions], selector, decls } from css text; media rules are unrolled, comments are dropped. */
+/** Flat list of { at: [wrapper conditions], selector, decls } from css text; media, supports, layer, container and keyframes blocks are unrolled (a keyframe step is a rule whose selector is its percentage), comments are dropped, and reading goes on after each of them. */
 function parseCss(text) {
   const src = stripComments(text);
   let i = 0;
@@ -72,9 +72,10 @@ function parseCss(text) {
       const close = src.indexOf('}', i);
       if (close !== -1 && (open === -1 || close < open)) { i = close + 1; return rules; }
       if (open === -1) break;
-      const head = src.slice(i, open).trim();
+      // A statement at-rule (@import, @charset, a layer order list) ends at its semicolon and has no block of its own.
+      const head = src.slice(i, open).trim().replace(/^(?:@[^{};]*;\s*)+/, '');
       i = open + 1;
-      if (/^@(media|supports)/.test(head)) {
+      if (/^@(?:-[a-z]+-)?(media|supports|layer|container|keyframes)/i.test(head)) {
         const at = head.replace(/\s+/g, '');
         for (const r of block()) rules.push({ ...r, at: [at, ...r.at] });
       } else {
@@ -418,20 +419,26 @@ describe('base styles', () => {
     assert.deepEqual(onlyBreakpoints('@media (min-width: 821px){a{x:y}}'), ['@media(min-width:821px)'], 'a min-width query is caught');
     assert.deepEqual(onlyBreakpoints('@media (width <= 900px){a{x:y}}'), ['@media(width<=900px)'], 'a range syntax width query is caught');
     assert.deepEqual(onlyBreakpoints('@media (max-width: 820px){a{x:y}} @media (max-width:1000px){a{x:y}} @media (prefers-color-scheme: dark){a{x:y}}'), [], 'the two breakpoints and a colour scheme query are allowed');
+    // A radius other than 0 or a box-shadow other than none, in any rule of a style text, including rules after a keyframes, layer or container block.
+    const shapeViolations = (text) => parseCss(text).flatMap((rule) => rule.decls.flatMap(([prop, value]) => [
+      ...(/^border(-[a-z]+)*-radius$/.test(prop) && !/^0(px)?$/.test(value) ? [`${prop}: ${value} in "${rule.selector}"`] : []),
+      ...(prop === 'box-shadow' && value !== 'none' ? [`box-shadow: ${value} in "${rule.selector}"`] : []),
+    ]));
     for (const file of files) {
       const text = stripComments(read(file));
       assert.doesNotMatch(text, /gradient\s*\(/i, `${file} has no gradient function`);
-      for (const rule of parseCss(text)) {
-        for (const [prop, value] of rule.decls) {
-          if (/^border(-[a-z]+)*-radius$/.test(prop)) assert.match(value, /^0(px)?$/, `${file}: ${prop} is 0 in "${rule.selector}"`);
-          if (prop === 'box-shadow') assert.equal(value, 'none', `${file}: box-shadow is none in "${rule.selector}"`);
-        }
-      }
+      assert.deepEqual(shapeViolations(text), [], `${file} has no radius and no shadow`);
     }
+    assert.equal(shapeViolations('@keyframes k{0%{opacity:0}100%{opacity:1}}.a{border-radius:4px}').length, 1, 'a radius after a keyframes block is caught');
+    assert.equal(shapeViolations('@keyframes k{0%{opacity:0}}@media (min-width:1px){.a{box-shadow:0 0 2px #000}}').length, 1, 'a shadow after a keyframes block is caught');
+    assert.equal(shapeViolations('@layer base{.a{border-radius:4px}}').length, 1, 'a radius inside a layer block is caught');
+    assert.equal(shapeViolations('@container (min-width:1px){.a{box-shadow:0 0 2px #000}}.b{border-radius:0}').length, 1, 'a shadow inside a container block is caught');
+    assert.deepEqual(shapeViolations('@keyframes k{0%{opacity:0}}.a{border-radius:0;box-shadow:none}'), [], 'a radius 0 and a shadow none after a keyframes block pass');
   });
 
-  it('the two block colour values appear only in tokens.css and var block nowhere', () => {
-    const files = [...styleFiles(), 'src/layouts/Base.astro'];
+  it('the two block colour values appear only in tokens.css and var block only in the one diagram rule', () => {
+    const components = walk(join(root, 'src', 'components')).filter((f) => f.endsWith('.astro')).map((f) => `src/components/${f}`);
+    const files = [...styleFiles(), 'src/layouts/Base.astro', ...components];
     assert.ok(files.includes('src/styles/tokens.css') && files.includes('src/styles/base.css'), 'both style files exist');
     const tokens = stripComments(read('src/styles/tokens.css')).toLowerCase();
     assert.ok(tokens.includes('#c4152b') && tokens.includes('#e0354a'), 'tokens.css holds both block values');
@@ -439,7 +446,24 @@ describe('base styles', () => {
       const text = read(file).toLowerCase();
       assert.ok(!text.includes('#c4152b') && !text.includes('#e0354a'), `${file} holds neither block value`);
     }
-    for (const file of files) assert.doesNotMatch(read(file), /var\(\s*--block\b/, `${file} does not use var(--block)`);
+    // The red-rule of DESIGN-marketing R-1: the block token is used by the fill of the blocked slab of the diagram, in one rule, and by nothing else.
+    const uses = (text) => parseCss(text).filter((r) => r.decls.some(([, v]) => /var\(\s*--block\b/.test(v)));
+    const found = [];
+    for (const file of files) {
+      const text = read(file);
+      if (file.endsWith('.css')) for (const rule of uses(text)) found.push({ file, rule });
+      else assert.doesNotMatch(stripComments(text), /var\(\s*--block\b/, `${file} does not use var(--block)`);
+    }
+    assert.equal(found.length, 1, `var(--block) is used by exactly one rule, found ${found.map((f) => `${f.file} "${f.rule.selector}"`).join(', ') || 'none'}`);
+    const [{ file, rule }] = found;
+    assert.equal(file, 'src/styles/pipeline.css', 'the one use is in src/styles/pipeline.css');
+    assert.match(rule.selector, /pipeline-state-blocked/, 'the one use is the blocked-slab rule');
+    assert.deepEqual(rule.decls.filter(([, v]) => /var\(\s*--block\b/.test(v)).map(([p]) => p), ['fill'], 'the one use is a fill');
+    assert.equal(uses('.a{fill:var(--block)}.b{stroke:var(--block)}').length, 2, 'a second use is counted');
+    assert.equal(uses('.a{fill:var(--accent)}/* var(--block) */').length, 0, 'a comment is not a use');
+    assert.equal(uses('.a{fill:var(--accent)}@keyframes k{0%{opacity:0}100%{opacity:1}}.b{fill:var(--block)}').length, 1, 'a use after a keyframes block is counted');
+    assert.equal(uses('@keyframes k{0%{opacity:0}}@media (prefers-reduced-motion:no-preference){.a{fill:var(--block)}}@layer x{.b{stroke:var(--block)}}').length, 2, 'uses after a keyframes block, in a media block and in a layer block are counted');
+    assert.equal(uses('@container (min-width:1px){.a{fill:var(--block)}}').length, 1, 'a use in a container block is counted');
   });
 });
 

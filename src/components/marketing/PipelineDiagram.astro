@@ -1,0 +1,214 @@
+---
+// The pipeline diagram (TASK-018): an isometric belt carries task slabs through five gates; one slab is blocked at 03 REVIEW, one leaves as CODE_DONE.
+// Pure markup and CSS: no script, no inline style, no colour literal. The drawing is built from the isometric geometry below, not copied from the approved sample.
+// Spec: docs/design/DESIGN-marketing.md ("The diagram"), the frame and legend of this component, and src/styles/pipeline.css for the look and the 20 s loop.
+import '../../styles/pipeline.css';
+
+interface Props {
+  /** Page language; the Turkish page gets the Turkish text alternative, key line and legend sentences. */
+  lang?: 'en' | 'tr';
+}
+
+const { lang = 'en' } = Astro.props;
+
+const TEXT = {
+  en: {
+    label:
+      'Isometric drawing of a belt carrying task slabs through five gates: PLAN, TEST, REVIEW, SECURITY, VERIFY. One slab is BLOCKED at REVIEW and sent back for a fix round; the other leaves as CODE_DONE.',
+    key: 'Cross: blocked at review and sent back for a fix round. Check mark: CODE_DONE.',
+    legend: [
+      'frozen with a scope: file list',
+      'RED, then GREEN, reproduced by the gates',
+      'never by whoever wrote the change',
+      'cannot be waived',
+      'CODE_DONE only when every required gate passed',
+    ],
+  },
+  tr: {
+    label:
+      'Görev levhalarını beş kapıdan geçiren izometrik bir bant çizimi: PLAN, TEST, REVIEW, SECURITY, VERIFY. Bir levha REVIEW kapısında BLOCKED olur ve fix round için geri gönderilir; diğeri CODE_DONE olarak çıkar.',
+    key: 'Çarpı: review’da engellendi, fix round’a geri döner. Onay işareti: CODE_DONE.',
+    legend: [
+      'scope: dosya listesiyle dondurulur',
+      'önce RED, sonra GREEN; kapılar bağımsız yeniden üretir',
+      'değişikliği yazan onu asla review etmez',
+      'waive edilemez',
+      'gerekli her kapı geçmeden CODE_DONE olmaz',
+    ],
+  },
+}[lang];
+const GATES = ['PLAN', 'TEST', 'REVIEW', 'SECURITY', 'VERIFY'];
+
+// ---- rail hatch ---------------------------------------------------------------------------------------------------------------------
+// Each rail is hatched by one svg path of 45 degree strokes 8 px apart (11.31 px along the rail), stroked through var(--hatch) in pipeline.css. A path needs no id, so any number of copies fit on one page.
+// The path is HATCH_W wide and HATCH_H tall, more than the widest rail (26 px) and the tallest one (the drawing is at most 760 px wide, so the pad is about 570 px high); the rail's own svg clips it.
+const HATCH_W = 26;
+const HATCH_H = 720;
+const HATCH_GAP = Math.round(8 * Math.SQRT2 * 100) / 100;
+const hatchStrokes: string[] = [];
+for (let y = -HATCH_W; y < HATCH_H; y += HATCH_GAP) hatchStrokes.push(`M0 ${Math.round((y + HATCH_W) * 100) / 100}L${HATCH_W} ${Math.round(y * 100) / 100}`);
+const hatch = hatchStrokes.join('');
+
+// ---- geometry -----------------------------------------------------------------------------------------------------------------------
+// Isometric plane of the 850 by 600 viewBox. s runs along the belt (52 right and 30 up per step), c across it (52 right and 30 down per step), z is height.
+const ORIGIN = { x: 75, y: 520 }; // screen position of the belt entry, where a slab starts (s = 0, c = 0)
+const STEP = { x: 52, y: 30 };
+const at = (s: number, c: number, z = 0): [number, number] => [
+  Math.round((ORIGIN.x + STEP.x * (s + c)) * 10) / 10,
+  Math.round((ORIGIN.y - STEP.y * s + STEP.y * c - z) * 10) / 10,
+];
+const pts = (list: Array<[number, number]>) => list.map(([x, y]) => `${x},${y}`).join(' ');
+
+interface Box { left: string; right: string; top: string }
+/** The three faces a viewer sees of a box spanning s0..s1, c0..c1, z0..z1: the face towards the entry (left), the face towards the front of the belt (right) and the top. */
+const box = (s0: number, s1: number, c0: number, c1: number, z0: number, z1: number): Box => ({
+  left: pts([at(s0, c0, z0), at(s0, c1, z0), at(s0, c1, z1), at(s0, c0, z1)]),
+  right: pts([at(s0, c1, z0), at(s1, c1, z0), at(s1, c1, z1), at(s0, c1, z1)]),
+  top: pts([at(s0, c0, z1), at(s1, c0, z1), at(s1, c1, z1), at(s0, c1, z1)]),
+});
+
+// Belt: 0.8 steps either side of its centre line, 12 units thick, from just before the entry to just past the exit.
+const BELT = { s0: -0.45, s1: 13.9, half: 0.8, thick: 12 };
+const belt = box(BELT.s0, BELT.s1, -BELT.half, BELT.half, -BELT.thick, 0);
+const beltDash = pts([at(BELT.s0 + 0.35, 0), at(BELT.s1 - 0.35, 0)]);
+
+// Gates: two pillars beside the belt and a lintel over it. Gate k stands at s = GATE_FIRST + k * GATE_GAP.
+const GATE_FIRST = 2.2;
+const GATE_GAP = 2.15;
+const GATE = { half: 0.14, inner: 0.85, outer: 1.1, pillar: 80, lintel: 14 };
+const gates = GATES.map((name, k) => {
+  const s = GATE_FIRST + k * GATE_GAP;
+  const [cx] = at(s, 0);
+  const s0 = s - GATE.half;
+  const s1 = s + GATE.half;
+  const roof = GATE.pillar + GATE.lintel;
+  const [bx, by] = at(s1, -GATE.outer, roof); // the highest corner of the gate; the label stays above it
+  const leaderX = Math.round((cx - 20) * 10) / 10;
+  // y of the lintel's upper edge at the leader x: from the highest corner (s1, -outer) to the nearest right corner (s1, +outer)
+  const [ex, ey] = at(s1, GATE.outer, roof);
+  const edgeAtLeader = by + ((leaderX - bx) / (ex - bx)) * (ey - by);
+  return {
+    name,
+    n: `0${k + 1}`,
+    back: box(s0, s1, -GATE.outer, -GATE.inner, 0, GATE.pillar),
+    front: box(s0, s1, GATE.inner, GATE.outer, 0, GATE.pillar),
+    lintel: box(s0, s1, -GATE.outer, GATE.outer, GATE.pillar, roof),
+    labelX: Math.round((cx + 32) * 10) / 10,
+    labelY: Math.round((by - 16) * 10) / 10,
+    leaderX,
+    leaderTop: Math.round(edgeAtLeader * 10) / 10,
+    leaderBottom: Math.round((by - 10) * 10) / 10,
+  };
+});
+
+// Slabs: 0.9 by 0.9 steps, 16 units thick, drawn at the belt entry; the CSS moves them (pipeline.css: --step is the distance along the belt).
+const SLAB = { half: 0.45, thick: 16 };
+const slab = box(-SLAB.half, SLAB.half, -SLAB.half, SLAB.half, 0, SLAB.thick);
+const [topX, topY] = at(0, 0, SLAB.thick); // the centre of a slab's top face
+const mark = (dx: number, dy: number): [number, number] => [Math.round((topX + dx) * 10) / 10, Math.round((topY + dy) * 10) / 10];
+// The cross runs along the two belt axes, so it reads as an x on the slab top; the check mark is drawn on screen.
+const CROSS = 0.4;
+const crossAlong = pts([at(-CROSS, 0, SLAB.thick), at(CROSS, 0, SLAB.thick)]);
+const crossAcross = pts([at(0, -CROSS, SLAB.thick), at(0, CROSS, SLAB.thick)]);
+const check = pts([mark(-17, -1), mark(-5, 9), mark(17, -12)]);
+
+// Fixed labels: TASK above the entry and CODE_DONE above the exit, both on a leader line. BLOCKED belongs to the blocked slab and sits under it, off the belt.
+const [taskX, taskY] = at(0, 0, 0);
+const exitStep = GATE_FIRST + 4 * GATE_GAP + 2.4; // the finished slab stops this far along the belt, right of the last gate
+const [exitX, exitTop] = at(exitStep + SLAB.half, -SLAB.half, SLAB.thick); // the highest corner of the finished slab
+const [blockX, blockY] = at(0, BELT.half, -BELT.thick);
+---
+
+<section class="pipeline">
+  <div class="pipeline-rail" aria-hidden="true">
+    <svg class="pipeline-rail-svg" focusable="false"><path class="pipeline-hatch" d={hatch}></path></svg>
+  </div>
+  <div class="pipeline-pad">
+    <svg class="pipeline-drawing" viewBox="0 0 850 600" role="img" aria-label={TEXT.label}>
+      <g class="pipeline-belt">
+        <polygon class="pipeline-face pipeline-left" points={belt.left}></polygon>
+        <polygon class="pipeline-shade pipeline-left" points={belt.left}></polygon>
+        <polygon class="pipeline-face pipeline-right" points={belt.right}></polygon>
+        <polygon class="pipeline-shade pipeline-right" points={belt.right}></polygon>
+        <polygon class="pipeline-face pipeline-top" points={belt.top}></polygon>
+        <polyline class="pipeline-dash" points={beltDash}></polyline>
+      </g>
+      {gates.map((g) => (
+        <g class="pipeline-gate-back">
+          <polygon class="pipeline-face pipeline-left" points={g.back.left}></polygon>
+          <polygon class="pipeline-shade pipeline-left" points={g.back.left}></polygon>
+          <polygon class="pipeline-face pipeline-right" points={g.back.right}></polygon>
+          <polygon class="pipeline-shade pipeline-right" points={g.back.right}></polygon>
+          <polygon class="pipeline-face pipeline-top" points={g.back.top}></polygon>
+        </g>
+      ))}
+      <g class="pipeline-slab pipeline-slab-finished">
+        <g class="pipeline-slab-body">
+          <polygon class="pipeline-face pipeline-left" points={slab.left}></polygon>
+          <polygon class="pipeline-shade pipeline-left" points={slab.left}></polygon>
+          <polygon class="pipeline-face pipeline-right" points={slab.right}></polygon>
+          <polygon class="pipeline-shade pipeline-right" points={slab.right}></polygon>
+          <polygon class="pipeline-face pipeline-top" points={slab.top}></polygon>
+        </g>
+        <g class="pipeline-state pipeline-state-finished">
+          <polygon class="pipeline-face pipeline-top" points={slab.top}></polygon>
+          <polyline class="pipeline-mark pipeline-check" points={check}></polyline>
+        </g>
+      </g>
+      <g class="pipeline-slab pipeline-slab-blocked">
+        <g class="pipeline-slab-body">
+          <polygon class="pipeline-face pipeline-left" points={slab.left}></polygon>
+          <polygon class="pipeline-shade pipeline-left" points={slab.left}></polygon>
+          <polygon class="pipeline-face pipeline-right" points={slab.right}></polygon>
+          <polygon class="pipeline-shade pipeline-right" points={slab.right}></polygon>
+          <polygon class="pipeline-face pipeline-top" points={slab.top}></polygon>
+        </g>
+        <g class="pipeline-state pipeline-state-finished">
+          <polygon class="pipeline-face pipeline-top" points={slab.top}></polygon>
+          <polyline class="pipeline-mark pipeline-check" points={check}></polyline>
+        </g>
+        <g class="pipeline-state pipeline-state-blocked">
+          <polygon class="pipeline-face pipeline-top" points={slab.top}></polygon>
+          <polyline class="pipeline-mark pipeline-cross" points={crossAlong}></polyline>
+          <polyline class="pipeline-mark pipeline-cross" points={crossAcross}></polyline>
+        </g>
+        <text class="pipeline-label pipeline-blocked-label" x={blockX} y={blockY + 46} text-anchor="middle">BLOCKED</text>
+      </g>
+      {gates.map((g) => (
+        <g class="pipeline-gate">
+          <polygon class="pipeline-face pipeline-left" points={g.front.left}></polygon>
+          <polygon class="pipeline-shade pipeline-left" points={g.front.left}></polygon>
+          <polygon class="pipeline-face pipeline-right" points={g.front.right}></polygon>
+          <polygon class="pipeline-shade pipeline-right" points={g.front.right}></polygon>
+          <polygon class="pipeline-face pipeline-top" points={g.front.top}></polygon>
+          <polygon class="pipeline-face pipeline-left" points={g.lintel.left}></polygon>
+          <polygon class="pipeline-shade pipeline-left" points={g.lintel.left}></polygon>
+          <polygon class="pipeline-face pipeline-right" points={g.lintel.right}></polygon>
+          <polygon class="pipeline-shade pipeline-right" points={g.lintel.right}></polygon>
+          <polygon class="pipeline-face pipeline-top" points={g.lintel.top}></polygon>
+        </g>
+      ))}
+      <g class="pipeline-labels">
+        <line class="pipeline-leader" x1={taskX} y1={taskY - 80} x2={taskX} y2={taskY - 52}></line>
+        <text class="pipeline-label pipeline-dim" x={taskX} y={taskY - 90} text-anchor="middle">TASK</text>
+        {gates.map((g) => (
+          <>
+            <line class="pipeline-leader" x1={g.leaderX} y1={g.leaderBottom} x2={g.leaderX} y2={g.leaderTop}></line>
+            <text class="pipeline-label" x={g.labelX} y={g.labelY} text-anchor="end"><tspan class="pipeline-n">{g.n}</tspan> {g.name}</text>
+          </>
+        ))}
+        <line class="pipeline-leader" x1={exitX} y1={exitTop - 8} x2={exitX} y2="52"></line>
+        <text class="pipeline-label pipeline-done" x="842" y="44" text-anchor="end">CODE_DONE</text>
+      </g>
+    </svg>
+    <p class="pipeline-key">{TEXT.key}</p>
+  </div>
+  <div class="pipeline-rail" aria-hidden="true">
+    <svg class="pipeline-rail-svg" focusable="false"><path class="pipeline-hatch" d={hatch}></path></svg>
+  </div>
+  <ol class="pipeline-legend">
+    {GATES.map((name, k) => (
+      <li><span class="pipeline-legend-name"><span class="pipeline-n">0{k + 1}</span> {name}</span><span class="pipeline-legend-text">{TEXT.legend[k]}</span></li>
+    ))}
+  </ol>
+</section>
