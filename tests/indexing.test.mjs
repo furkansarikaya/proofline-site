@@ -321,6 +321,9 @@ describe('variant builds', () => {
     parent = mkdtempSync(join(root, '.cache', 'proofline-indexing-'));
     const scrubbed = { ...process.env };
     for (const key of ENV_KEYS) delete scrubbed[key];
+    // The home pages read the pin facts of the pinned documents while they are built (TASK-019): the fetch runs once, before the variant builds.
+    const fetched = spawnSync(process.execPath, [join(root, 'scripts', 'sync.mjs'), 'fetch'], { cwd: root, encoding: 'utf8', timeout: 120000, env: scrubbed });
+    assert.equal(fetched.status, 0, `the fetch of the pinned documents exits 0: ${(fetched.stdout ?? '') + (fetched.stderr ?? '')}`.slice(-400));
     for (const [name, env] of Object.entries(VARIANTS)) {
       const outDir = join(parent, name);
       const r = spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', outDir], {
@@ -359,6 +362,8 @@ describe('variant builds', () => {
       assert.equal($('meta[name="robots"]').length, 1, `${rel} holds one robots meta`);
       assert.equal($('meta[name="robots"]').attr('content'), 'noindex, nofollow');
       assert.deepEqual(headSignature($), ['meta[charset]', 'meta[name=viewport]', 'meta[name=robots]', 'title'], `${rel} head signature`);
+      // The home pages are the real ones: the pinned documents were fetched first and the pages were built from them.
+      if (rel !== '404.html') assert.equal($('main h1.home-h1').length, 1, `${rel} holds the home headline`);
     }
     assert.equal(read(b, 'robots.txt'), CLOSED_ROBOTS);
     assert.equal(existsSync(join(b.outDir, 'sitemap.xml')), false, 'no sitemap is written');

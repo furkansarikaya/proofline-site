@@ -143,9 +143,13 @@ before(() => {
   mkdirSync(join(root, '.cache'), { recursive: true });
   built.parent = mkdtempSync(join(root, '.cache', 'proofline-site-'));
   built.outDir = join(built.parent, 'dist');
-  const r = spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', built.outDir], { cwd: root, encoding: 'utf8' });
+  // The home pages read the pin facts of the pinned documents while they are built (TASK-019), so the fetch comes first, as in `npm run build`.
+  const fetched = spawnSync(process.execPath, [join(root, 'scripts', 'sync.mjs'), 'fetch'], { cwd: root, encoding: 'utf8' });
+  const r = fetched.status === 0
+    ? spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', built.outDir], { cwd: root, encoding: 'utf8' })
+    : fetched;
   built.status = r.status;
-  built.output = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  built.output = `${fetched.stdout ?? ''}${fetched.stderr ?? ''}${r.stdout ?? ''}${r.stderr ?? ''}`;
 }, { timeout: 120000 });
 
 after(() => {
@@ -238,6 +242,9 @@ describe('built pages', { timeout: 120000 }, () => {
       assert.equal(link.attr('lang'), expected[lang].lang);
       assert.equal(link.attr('hreflang'), expected[lang].hreflang);
       assert.equal(link.prop('tagName'), 'A', 'the language control is a link, not a button');
+      // On the real home pages (TASK-019) the link leads from one home page to the other and back.
+      assert.equal(link.attr('href'), lang === 'en' ? '/tr/' : '/', `${rel}: the language link leads to the other home page`);
+      assert.equal(page(rel)('main h1.home-h1').length, 1, `${rel}: the page is the real home page`);
     }
     const notFound = page('404.html')('a#b-lang');
     assert.equal(notFound.attr('href'), switcherTarget('/404.html').href);
@@ -412,6 +419,9 @@ describe('built pages, command block', { timeout: 120000 }, () => {
       assert.equal(pre.attr('lang'), 'en', `${rel}: the command block is English`);
       assert.equal(pre.attr('translate'), 'no', `${rel}: the command block is not translated`);
       assert.equal(pre.text(), COMMAND.join('\n'), `${rel}: the two lines, no leading or trailing newline`);
+      // The home pages keep one command block with the copy button: the first-screen block; the two step blocks are plain pre elements without an id.
+      assert.equal($('main .home-hero pre#cmd').length, 1, `${rel}: the one command block is the first-screen block of the home page`);
+      assert.equal($('main pre.home-call[id]').length, 0, `${rel}: the step blocks have no id`);
       assert.equal($('html').attr('lang'), lang);
       const copy = $('button#b-copy');
       assert.equal(copy.length, 1);

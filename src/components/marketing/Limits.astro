@@ -1,0 +1,12 @@
+---
+// The limits sentence of the home page (TASK-019, DESIGN-marketing R-6): one sentence in two halves, with its two links. The halves are never shown apart.
+interface Props {
+  parts: { before: string; middle: string; after: string };
+  site: { href: string; text: string };
+  readme: { href: string; text: string };
+}
+
+const { parts, site, readme } = Astro.props;
+---
+
+<p class="home-limits">{parts.before}<a href={site.href}>{site.text}</a>{parts.middle}<a href={readme.href}>{readme.text}</a>{parts.after}</p>

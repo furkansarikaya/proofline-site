@@ -1,0 +1,28 @@
+---
+// The first row of the home page (TASK-019): the two-tone headline (columns 1 to 7), then the description, the one copyable install command and the optional note link
+// (columns 8 to 12; one column on a phone). No CSS import: Base.astro bundles src/styles/home.css, so the build keeps one stylesheet.
+import type { Lang } from '../../lib/meta.ts';
+import CommandBlock from './CommandBlock.astro';
+
+interface Props {
+  lang: Lang;
+  headline: { muted: string; ink: string };
+  lead: string;
+  install: { label: string; lines: readonly string[] };
+  /** The link to the get-started page; absent while that page is not registered, and then no paragraph is printed. */
+  note?: { href: string; text: string };
+}
+
+const { lang, headline, lead, install, note } = Astro.props;
+---
+
+<section class="wrap home-hero">
+  <div class="grid">
+    <h1 class="home-h1"><span class="home-h1-a">{headline.muted}</span> <span class="home-h1-b">{headline.ink}</span></h1>
+    <div class="home-side">
+      <p class="home-lead">{lead}</p>
+      <CommandBlock lang={lang} label={install.label} lines={install.lines} />
+      {note && <p class="home-note"><a href={note.href}>{note.text}</a></p>}
+    </div>
+  </div>
+</section>
