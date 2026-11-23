@@ -6,7 +6,7 @@ import { after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -795,18 +795,24 @@ describe('repository hygiene and build wiring', () => {
     assert.deepEqual(pages, [], 'no synced document or folder is in the project');
   });
 
-  it('the build script runs the fetch before astro and a failed fetch writes no html', () => {
+  it('the build script runs the fetch before astro and the guards after it, and a failed fetch writes no html', () => {
     const scripts = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')).scripts;
-    assert.equal(scripts.build, 'node scripts/sync.mjs fetch && astro build');
+    assert.equal(scripts.build, 'node scripts/sync.mjs fetch && astro build && node scripts/check-dist.mjs guards dist');
     assert.equal(scripts.sync, 'node scripts/sync.mjs fetch');
     assert.equal(scripts['sync:lock'], 'node scripts/sync.mjs lock');
     const { dir, url } = lockedProject();
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'tmp', private: true, type: 'module', scripts: { build: scripts.build } }));
+    // The guard step of the build: the dist checker (its library comes with project()), cheerio, and a PROBES file whose
+    // PB-3 item has no result, so the outcome does not depend on the real PB-3 state.
+    cpSync(join(repo, 'scripts', 'check-dist.mjs'), join(dir, 'scripts', 'check-dist.mjs'));
     mkdirSync(join(dir, 'node_modules', '.bin'), { recursive: true });
+    symlinkSync(join(repo, 'node_modules', 'cheerio'), join(dir, 'node_modules', 'cheerio'), 'dir');
+    mkdirSync(join(dir, 'docs', 'product', 'site'), { recursive: true });
+    cpSync(join(repo, 'tests', 'fixtures', 'guards', 'PROBES.md'), join(dir, 'docs', 'product', 'site', 'PROBES.md'));
     const stub = join(dir, 'node_modules', '.bin', 'astro');
-    writeFileSync(stub, `#!/bin/sh\necho ran > astro-ran\nif [ -d ".cache/sync/${COMMIT}" ]; then echo yes > astro-saw-cache; fi\nmkdir -p dist\necho '<p>built</p>' > dist/index.html\n`);
+    writeFileSync(stub, `#!/bin/sh\necho ran > astro-ran\nif [ -d ".cache/sync/${COMMIT}" ]; then echo yes > astro-saw-cache; fi\nmkdir -p dist\nprintf '%s\\n' "\${STUB_PAGE:-<p>built</p>}" > dist/index.html\n`);
     chmodSync(stub, 0o755);
-    const build = (address) => spawnSync('npm', ['run', 'build'], { cwd: dir, env: envFor(address), encoding: 'utf8', timeout: 25000 });
+    const build = (address, extra) => spawnSync('npm', ['run', 'build'], { cwd: dir, env: envFor(address, extra), encoding: 'utf8', timeout: 25000 });
 
     const bad = build(saveArchive(archiveOf(withFile('docs/limits.md', '# Limits tezt\n'))));
     assert.notEqual(bad.status, 0, 'a tampered archive fails the build');
@@ -818,6 +824,15 @@ describe('repository hygiene and build wiring', () => {
     assert.equal(good.status, 0, good.stderr);
     assert.ok(existsSync(join(dir, 'dist', 'index.html')));
     assert.ok(existsSync(join(dir, 'astro-saw-cache')), 'the cache existed when astro started');
+    assert.match(good.stdout, /^PB-3: no result$/m, 'the guard ran after astro and printed the PB-3 state');
+
+    // AC-10: a failing page fails the build after the astro step, and the output names the page and the pattern.
+    rmSync(join(dir, 'astro-ran'));
+    const failing = build(url, { STUB_PAGE: '<p>Install in 5 minutes</p>' });
+    assert.notEqual(failing.status, 0, 'a page that states an install time fails the build');
+    assert.ok(existsSync(join(dir, 'astro-ran')), 'the failure came after the astro step');
+    assert.match(failing.stdout, /^\/: install-time text "5 minutes" matches /m);
+    assert.ok(failing.stdout.includes(String.raw`(?<![\w-])(five|5)[ -]?(minutes?|mins?)`), 'the output holds the pattern');
   });
 
   it('two fetches from an empty cache give the same cache tree hash', () => {

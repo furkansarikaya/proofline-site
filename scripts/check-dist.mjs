@@ -2,13 +2,18 @@
 //   node scripts/check-dist.mjs links <dir>          every internal href/src of every page must resolve inside <dir>
 //   node scripts/check-dist.mjs compare <a> <b>      the two trees must hold the same paths with the same contents
 //   node scripts/check-dist.mjs determinism          two clean builds, then compare them
-// Exit status: 0 pass, 1 check failed, 2 usage.
+//   node scripts/check-dist.mjs guards <dir> [--probes <file>] [--pin <file>] [--cache <dir>]
+//                                                    the install-time and README command guards (scripts/lib/guards.mjs) over
+//                                                    the pages of <dir>; the defaults are the repository's PROBES.md, pin and cache
+// Exit status: 0 pass, 1 check failed (or, in guards, an input error), 2 usage.
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load } from 'cheerio';
+import { checkGuards } from './lib/guards.mjs';
+import { readPinFacts } from './lib/pin-facts.mjs';
 
 const ORIGIN = 'http://dist.local';
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -118,6 +123,57 @@ function determinism() {
   return compareTrees(first, join(repo, 'dist'));
 }
 
+const USAGE = 'usage: check-dist.mjs links <dir> | compare <a> <b> | determinism | guards <dir> [--probes <file>] [--pin <file>] [--cache <dir>]';
+const GUARD_OPTIONS = ['--probes', '--pin', '--cache'];
+
+/** The arguments of mode `guards`: one directory and each option at most once with a value; null on a usage error. */
+function guardArgs(args) {
+  const options = {};
+  const dirs = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg.startsWith('--')) { dirs.push(arg); continue; }
+    const value = args[i + 1];
+    if (!GUARD_OPTIONS.includes(arg) || arg in options || value === undefined || value.startsWith('--')) return null;
+    options[arg] = value;
+    i++;
+  }
+  if (dirs.length !== 1) return null;
+  return {
+    dir: dirs[0],
+    probes: options['--probes'] === undefined ? join(repo, 'docs', 'product', 'site', 'PROBES.md') : resolve(options['--probes']),
+    pin: options['--pin'] === undefined ? join(repo, 'sync', 'pin.json') : resolve(options['--pin']),
+    cache: options['--cache'] === undefined ? join(repo, '.cache', 'sync') : resolve(options['--cache']),
+  };
+}
+
+/** Mode `guards`: print the PB-3 state, the failure lines and the summary; 1 on a failure or an input error. Writes nothing. */
+function guards({ dir, probes, pin, cache }) {
+  let files = [];
+  try { files = listFiles(dir); } catch { files = []; } // a regular file given as <dir> holds no page
+  const pages = files.filter((f) => f.endsWith('.html')).map((rel) => ({ address: pagePath(rel), html: readFileSync(join(dir, rel), 'utf8') }));
+  if (pages.length === 0) {
+    console.log(`guards: no HTML page under ${dir}`);
+    return 1;
+  }
+  let probesText;
+  try {
+    probesText = readFileSync(probes, 'utf8');
+  } catch (error) {
+    console.log(`guards: ${probes}: cannot be read (${error.code ?? error.message})`);
+    return 1;
+  }
+  let result;
+  try {
+    result = checkGuards({ pages, probesText, loadFacts: () => readPinFacts(pin, cache) });
+  } catch (error) {
+    console.log(`guards: ${error.message}`);
+    return 1;
+  }
+  for (const line of result.lines) console.log(line);
+  return result.failures.length > 0 ? 1 : 0;
+}
+
 function main(argv) {
   const [command, ...args] = argv;
   if (command === 'links' && args.length === 1) {
@@ -137,7 +193,11 @@ function main(argv) {
     console.log(result.equal ? 'determinism: the two builds are identical' : 'determinism: the two builds differ');
     return result.equal ? 0 : 1;
   }
-  console.error('usage: check-dist.mjs links <dir> | compare <a> <b> | determinism');
+  if (command === 'guards') {
+    const parsed = guardArgs(args);
+    if (parsed !== null) return guards(parsed);
+  }
+  console.error(USAGE);
   return 2;
 }
 
