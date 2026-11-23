@@ -74,6 +74,7 @@ Every text pair is at least 4.5. The accent is used as a fill or a ring only whe
 | GitHub icon link, theme toggle, language link | `src/components/marketing/Header.astro` (same file) | see "Header controls" |
 | One-line footer | `src/components/marketing/Footer.astro` | wraps on a phone, links at least 44 high up to 820px |
 | Copyable command block | `src/components/marketing/CommandBlock.astro` | default, copied (announced politely), copy refused (command selected, the message is also shown visibly under the command and announced politely) |
+| Get-started page (two languages) | `src/components/marketing/GetStarted.astro`, `src/styles/get-started.css` | plain framed command blocks (`pre`, English, no translation, no copy button), wrapping at every width, no horizontal scroll from 320px; no drawing and no motion by design |
 | Icons: `github.svg`, `sun.svg`, `moon.svg` | `src/assets/icons/` | `currentColor`, readable in both themes |
 | Controls script | `public/assets/controls.js` (at most 2048 bytes) | theme key `theme`, copy button, hidden controls without the script |
 | Marketing component styles | `src/styles/components.css` (imported in `Base.astro` after tokens.css and base.css) | one bundled stylesheet |
@@ -110,3 +111,4 @@ The patterns centred title with two buttons and a floating panel, stat band, log
 - Decided 2026-11-20 (docs surface design): docs pages load `docs.js` (at most 4096 bytes uncompressed) and the search script only; the size check and the "no other script" check run in CI (ADR 0008). The sample's `docs.js` is 2806 bytes; the 4096 limit leaves room for the search wiring.
 - Contrast of the diagram's red box against the teal box is 1.05 (light) and 1.51 (dark): the two states are told apart by shape and label, not by colour or lightness (DESIGN-marketing.md, R-1).
 - Decided 2026-11-23 (TASK-019, user option A): the two-line phone headline stays at 31.2 px at 390 wide, so its ratio to the 16 px body is 1.95, below the check minimum of 3 (design_type_scale, rows D-29 and D-68); the rows are waived. The copy button is hidden without the controls script by design (AC-14), so the design_no_script_visible rows D-84, D-87, D-92 and D-95 are waived.
+- Decided 2026-11-24 (TASK-021, user waivers): the get-started pages are plain text by design, so the design checker rows design_empty_hero (no visual in the first viewport) and design_motion_count (nothing animates) fail on them and are waived; the 390 px headline ratio of 1.95 is the same waived value as on the home pages.

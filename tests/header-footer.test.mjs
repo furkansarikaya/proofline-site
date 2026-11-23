@@ -106,8 +106,8 @@ describe('navigation module', () => {
     assert.deepEqual(menu('en', FIVE_PAIRS), MENU_EN);
     assert.deepEqual(menu('tr', FIVE_PAIRS), MENU_TR);
     assert.deepEqual(menu('en', [FIVE_PAIRS[4], FIVE_PAIRS[0]]), [MENU_EN[0], MENU_EN[4]], 'the fixed order holds whatever the order of the pairs');
-    assert.deepEqual(menu('en'), [MENU_EN[0]], 'the real pairs give only Home');
-    assert.deepEqual(menu('tr'), [MENU_TR[0]]);
+    assert.deepEqual(menu('en'), [MENU_EN[0], MENU_EN[1]], 'the real pairs give Home and Get started');
+    assert.deepEqual(menu('tr'), [MENU_TR[0], MENU_TR[1]]);
     assert.deepEqual(menu('en', []), [], 'no pair, no entry');
     assert.deepEqual(menu('en', [{ en: '/other/', tr: '/tr/baska/' }]), [], 'an unknown pair adds no entry');
     assert.deepEqual(MENU.map((e) => e.surface), ['site', 'site', 'docs', 'site', 'site']);
@@ -180,7 +180,8 @@ describe('built pages', { timeout: 120000 }, () => {
         assert.equal($(el).closest('nav').length, 1, `${rel}: an unnamed header control is a menu link`);
         return 'menu';
       });
-      assert.deepEqual(roles, ['brand', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
+      // The real pairs list two entries today: Home and Get started (TASK-021).
+      assert.deepEqual(roles, ['brand', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
       const brand = $('header .brand');
       assert.equal(squash(brand.text()), 'proofline');
       assert.equal(brand.attr('href'), lang === 'tr' ? '/tr/' : '/', `${rel} brand target`);

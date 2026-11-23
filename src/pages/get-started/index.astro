@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import GetStarted from '../../components/marketing/GetStarted.astro';
+import { frontmatter } from '../../content/pages/en/get-started.md';
+import { readGetStartedContent, startFacts } from '../../lib/get-started.ts';
+
+// The pin facts are read at build time; a missing fact fails the build with the message of scripts/lib/pin-facts.mjs.
+const facts = startFacts();
+const content = readGetStartedContent(frontmatter);
+---
+
+<Base path="/get-started/" title={{ kind: 'site', text: content.title }} lead={content.lead}>
+  <GetStarted lang="en" content={content} facts={facts} />
+</Base>
