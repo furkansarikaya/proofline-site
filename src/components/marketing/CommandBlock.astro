@@ -1,0 +1,30 @@
+---
+// The copyable command block (TASK-005): a label, a Copy button and the command lines. The command is English and never translated, also on the
+// Turkish page. The Copy button stays hidden until /assets/controls.js ran; without it the command is plain selectable text.
+import type { Lang } from '../../lib/meta.ts';
+
+interface Props {
+  lang: Lang;
+  /** The head row text, for example the name of the tool the command is for. */
+  label: string;
+  lines: readonly string[];
+}
+
+const { lang, label, lines } = Astro.props;
+
+const TEXT = {
+  en: { copy: 'Copy', name: 'Copy the install commands', done: 'Copied', fail: 'Could not copy; the command is selected, copy it by hand' },
+  tr: { copy: 'Kopyala', name: 'Kurulum komutlarını kopyala', done: 'Kopyalandı', fail: 'Kopyalanamadı; komut seçildi, elle kopyalayın' },
+}[lang];
+---
+
+{lines.length > 0 && (
+  <div class="install">
+    <div class="install-head">
+      <span>{label}</span>
+      <button type="button" class="copy" id="b-copy" aria-label={TEXT.name} data-done={TEXT.done} data-fail={TEXT.fail}>{TEXT.copy}</button>
+    </div>
+    <pre class="cmd" id="cmd" lang="en" translate="no"><code>{lines.join('\n')}</code></pre>
+    <span class="sr" id="live" role="status"></span>
+  </div>
+)}

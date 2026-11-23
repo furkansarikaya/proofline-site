@@ -1,8 +1,12 @@
 ---
 import '../styles/tokens.css';
 import '../styles/base.css';
+import '../styles/components.css';
+import Footer from '../components/marketing/Footer.astro';
+import Header from '../components/marketing/Header.astro';
 import { buildHead } from '../lib/meta.ts';
 import type { PageTitle } from '../lib/meta.ts';
+import { controlsScript } from '../lib/nav.ts';
 import { alternates, checkStale, langOf } from '../lib/translations.ts';
 import type { StaleSource } from '../lib/translations.ts';
 
@@ -35,10 +39,13 @@ if (source) checkStale(path, source);
     <meta property="og:description" content={head.description} />
     <meta property="og:image" content={head.ogImage} />
     <meta property="og:image:alt" content={head.ogImageAlt} />
+    {controlsScript(path) && <script is:inline src="/assets/controls.js"></script>}
     {links.map((link) => <link rel="alternate" hreflang={link.hreflang} href={link.href} />)}
     {head.jsonLd && <script type="application/ld+json" is:inline set:html={head.jsonLd}></script>}
   </head>
   <body>
+    <Header path={path} />
     <main><slot /></main>
+    <Footer lang={lang} />
   </body>
 </html>

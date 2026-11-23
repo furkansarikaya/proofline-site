@@ -492,6 +492,15 @@ describe('built site', () => {
     return $.html();
   };
 
+  // The repository navigation links (ADR 0006 point 3 and the footer): `a` elements whose address is exactly one of the three repository
+  // addresses. Only their href is skipped; a resource address (src, stylesheet href) or any other address stays in the scan (ADR 0008 point 4).
+  const REPOSITORY_LINK = /^https:\/\/github\.com\/furkansarikaya\/(?:proofline|proofline-site|proofline\/blob\/(?:[0-9a-f]{40}|main)\/LICENSE)$/;
+  const withoutRepositoryLinks = (html) => {
+    const $ = load(html);
+    $('a[href]').filter((_, el) => REPOSITORY_LINK.test(el.attribs.href)).removeAttr('href');
+    return $.html();
+  };
+
   it('styles and dist hold no external host, no import and no foreign url', { timeout: 120000 }, () => {
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
     const probe = withoutHeadMetadata([
@@ -504,12 +513,36 @@ describe('built site', () => {
       '</head><body></body></html>',
     ].join(''));
     assert.doesNotMatch(probe, /proofline\.technology|schema\.org/, 'the og content, the alternate hrefs and the JSON-LD block are skipped');
+    const repositoryProbe = withoutRepositoryLinks([
+      '<a href="https://github.com/furkansarikaya/proofline">a</a>',
+      '<a href="https://github.com/furkansarikaya/proofline-site">b</a>',
+      `<a href="https://github.com/furkansarikaya/proofline/blob/${'0123456789abcdef'.repeat(2)}01234567/LICENSE">c</a>`,
+      '<a href="https://github.com/furkansarikaya/proofline/blob/main/LICENSE">d</a>',
+      '<a href="https://github.com/furkansarikaya/other">e</a>',
+      '<a href="https://github.com/furkansarikaya/proofline/archive/main.zip">f</a>',
+      '<a href="http://github.com/furkansarikaya/proofline">g</a>',
+      '<a href="https://github.com/furkansarikaya/proofline?x=1">h</a>',
+      '<a href="https://github.com/furkansarikaya/proofline/blob/xyz/LICENSE">i</a>',
+      '<link rel="stylesheet" href="https://github.com/furkansarikaya/proofline">',
+      '<img src="https://github.com/furkansarikaya/proofline" alt="">',
+    ].join(''));
+    assert.equal(repositoryProbe.match(/https?:\/\/github\.com\/[^"]*/g)?.length, 7, 'the exact addresses are skipped and every other github address stays in the scan');
+    for (const kept of ['furkansarikaya/other', 'archive/main.zip', 'http://github.com/furkansarikaya/proofline"', 'proofline?x=1', 'blob/xyz/LICENSE']) {
+      assert.ok(repositoryProbe.includes(kept), `a repository-like address stays in the scan: ${kept}`);
+    }
+    assert.ok(/<link[^>]*href="https:\/\/github\.com\/furkansarikaya\/proofline"/.test(repositoryProbe), 'a stylesheet link to the repository stays in the scan');
+    assert.ok(/<img[^>]*src="https:\/\/github\.com\/furkansarikaya\/proofline"/.test(repositoryProbe), 'an image from the repository stays in the scan');
+    for (const skipped of ['>a<', '>b<', '>c<', '>d<']) assert.ok(repositoryProbe.includes(skipped), `the link text ${skipped} is kept`);
+    assert.equal(/href="https:\/\/github\.com\/furkansarikaya\/proofline(?:-site)?"[^>]*>(?:a|b)</.test(repositoryProbe), false, 'the exact repository links lose their href');
     for (const kept of ['https://cdn.example/a.css', 'http://img.example/b.png', 'https://cdn.example/c.css', 'https://cdn.example/d']) {
       assert.ok(probe.includes(kept), `any other address stays in the scan: ${kept}`);
     }
     for (const rel of ['index.html', 'tr/index.html']) {
       const raw = existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '';
-      for (const needed of ['property="og:image" content="https://proofline.technology/og-default.png"', 'rel="alternate"', 'application/ld+json']) {
+      for (const needed of [
+        'property="og:image" content="https://proofline.technology/og-default.png"', 'rel="alternate"', 'application/ld+json',
+        'href="https://github.com/furkansarikaya/proofline"', 'href="https://github.com/furkansarikaya/proofline-site"', '/LICENSE"',
+      ]) {
         assert.ok(raw.includes(needed), `dist/${rel} holds the head metadata the scan skips: ${needed}`);
       }
     }
@@ -521,7 +554,7 @@ describe('built site', () => {
     assert.ok(files.some(([f]) => f.endsWith('.css') && f.startsWith('dist/')), 'the build emitted a stylesheet');
     assert.ok(files.length >= 7, 'the scan read the sources and the built files');
     for (const [name, raw] of files) {
-      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutHeadMetadata(raw) : raw;
+      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutRepositoryLinks(withoutHeadMetadata(raw)) : raw;
       assert.doesNotMatch(text, /https?:\/\//i, `${name} names no host`);
       assert.doesNotMatch(text, /@import/i, `${name} has no @import`);
       for (const m of text.matchAll(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi)) {
@@ -536,6 +569,12 @@ describe('built site', () => {
     const baseAt = layout.search(/import\s+['"]\.\.\/styles\/base\.css['"]/);
     assert.ok(tokensAt >= 0, 'Base.astro imports ../styles/tokens.css');
     assert.ok(baseAt > tokensAt, 'Base.astro imports ../styles/base.css after tokens.css');
+    const componentsAt = layout.search(/import\s+['"]\.\.\/styles\/components\.css['"]/);
+    assert.ok(componentsAt > baseAt, 'Base.astro imports ../styles/components.css after base.css');
+    for (const name of ['Header', 'Footer', 'CommandBlock']) {
+      assert.ok(read(`src/components/marketing/${name}.astro`) !== '', `${name}.astro exists`);
+      assert.doesNotMatch(read(`src/components/marketing/${name}.astro`), /import\s+['"][^'"]*\.css['"]/, `${name}.astro imports no stylesheet, Base.astro bundles the one`);
+    }
     const config = (await import(pathToFileURL(join(root, 'astro.config.mjs')).href)).default;
     assert.equal(config.build.inlineStylesheets, 'never', 'astro.config.mjs sets build.inlineStylesheets to never');
     assert.equal(config.build.format, 'directory', 'the existing build format is kept');

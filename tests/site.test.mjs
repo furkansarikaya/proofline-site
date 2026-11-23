@@ -256,7 +256,7 @@ describe('built site', () => {
     assert.deepEqual(signatures[2], signatures[0]);
   });
 
-  it('only the home pages hold the JSON-LD WebSite block', () => {
+  it('home pages hold the JSON-LD block and the one controls script; other pages hold no script', () => {
     const homes = { 'index.html': 'en', 'tr/index.html': 'tr' };
     for (const rel of walk(dist).filter((f) => f.endsWith('.html'))) {
       const $ = page(rel);
@@ -264,12 +264,29 @@ describe('built site', () => {
         assert.equal($('script').length, 0, `${rel} holds no script element`);
         continue;
       }
-      assert.equal($('script').length, 1, `${rel} holds exactly one script element`);
+      assert.equal($('script').length, 2, `${rel} holds the JSON-LD block and the controls script`);
       assert.equal($('script[type="application/ld+json"]').length, 1, `${rel} holds one application/ld+json block`);
       const data = JSON.parse($('script[type="application/ld+json"]').text());
       assert.equal(data['@type'], 'WebSite');
       assert.equal(data.name, BRAND[homes[rel]]);
+      const controls = $('script[src]');
+      assert.equal(controls.length, 1, `${rel} holds exactly one script with a source`);
+      assert.equal($('head > script[src="/assets/controls.js"]').length, 1, `${rel}: the controls script is in the head`);
+      for (const attribute of ['async', 'defer', 'type', 'nomodule', 'integrity', 'crossorigin']) {
+        assert.equal(controls.attr(attribute), undefined, `${rel}: the controls script has no ${attribute} attribute`);
+      }
+      assert.equal(controls.text(), '', `${rel}: the controls script has no body`);
+      for (const script of $('script').toArray()) assert.equal(script.parent.tagName, 'head', `${rel}: every script is a child of head`);
     }
+  });
+
+  it('controls script file is built, at most 2048 bytes and equal to the source', () => {
+    const source = join(root, 'public', 'assets', 'controls.js');
+    assert.ok(existsSync(source), 'public/assets/controls.js exists');
+    assert.ok(existsSync(join(dist, 'assets', 'controls.js')), 'dist/assets/controls.js exists');
+    const bytes = readFileSync(source);
+    assert.ok(bytes.length <= 2048, `controls.js is at most 2048 bytes, found ${bytes.length}`);
+    assert.ok(readFileSync(join(dist, 'assets', 'controls.js')).equals(bytes), 'dist/assets/controls.js is the same file');
   });
 
   it('every page head carries description and og tags', () => {

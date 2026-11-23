@@ -1,0 +1,55 @@
+---
+// The site header (TASK-005): brand, menu, GitHub link, language link, theme button. The DOM order is the tab order (DESIGN.md "Header controls").
+// The theme button stays hidden until /assets/controls.js adds `js` to the html element (src/styles/components.css). No style, no CSS import:
+// Base.astro imports the one components.css, so the build keeps one stylesheet.
+import Github from '../../assets/icons/github.svg';
+import Moon from '../../assets/icons/moon.svg';
+import Sun from '../../assets/icons/sun.svg';
+import { HOME } from '../../lib/meta.ts';
+import { REPO_URL, menu } from '../../lib/nav.ts';
+import { langOf, switcherTarget } from '../../lib/translations.ts';
+
+interface Props {
+  /** The address of the page being built, with the trailing slash (`/404.html` for the not-found page). */
+  path: string;
+}
+
+const { path } = Astro.props;
+const lang = langOf(path);
+const target = switcherTarget(path);
+
+const TEXT = {
+  en: {
+    github: 'proofline on GitHub',
+    language: 'TR',
+    languageName: 'TR: read this page in Turkish',
+    themeLight: 'Theme: light. Switch to dark',
+    themeDark: 'Theme: dark. Switch to light',
+  },
+  tr: {
+    github: "GitHub'da proofline",
+    language: 'EN',
+    languageName: 'EN: bu sayfayı İngilizce oku',
+    themeLight: 'Tema: açık. Koyu temaya geç',
+    themeDark: 'Tema: koyu. Açık temaya geç',
+  },
+}[lang];
+---
+
+<header class="wrap">
+  <div class="bar">
+    <a class="brand" href={HOME[lang]}><svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" focusable="false"><path d="M2 19h18M6 19V5h10v14" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>proofline</a>
+    <nav>
+      <ul>
+        {menu(lang).map((entry) => <li><a href={entry.href} aria-current={entry.href === path ? 'page' : undefined}>{entry.label}</a></li>)}
+      </ul>
+    </nav>
+    <div class="tools">
+      <a class="tool" id="b-gh" href={REPO_URL} aria-label={TEXT.github}><Github /></a>
+      <a class="tool" id="b-lang" href={target.href} lang={target.lang} hreflang={target.lang} aria-label={TEXT.languageName}>{TEXT.language}</a>
+      <button type="button" class="tool theme" id="b-theme" aria-label={TEXT.themeLight} data-name-light={TEXT.themeLight} data-name-dark={TEXT.themeDark}>
+        <span class="cell cell-sun"><Sun /></span><span class="cell cell-moon"><Moon /></span>
+      </button>
+    </div>
+  </div>
+</header>
