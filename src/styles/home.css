@@ -1,0 +1,216 @@
+/* Home page (TASK-019). Imported by src/layouts/Base.astro after components.css and pipeline.css, so the build keeps one stylesheet. Class prefix home-.
+   Colours only through the tokens of tokens.css and sizes through the type steps of base.css; no gradient, no radius, no shadow, no url(), no inline style, no animation
+   or transition. Values follow docs/design/DESIGN-marketing.md "Layout rules" and design/UI.md of the task: headline in columns 1 to 7, description and command in columns 8 to 12,
+   the lower reading column from column 4, six columns wide, with a hatched tab 14 by 92 beside the section headline. At 820px and below one column in the same order. */
+
+.home {
+  position: relative;
+}
+
+/* The grid hairlines of the 12 columns, behind the page: decorative, so no one reads them. Later positioned sections paint above this layer. */
+.home-lines {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* ---- first row ---- */
+.home-hero {
+  position: relative;
+  padding-top: 72px;
+  padding-bottom: 40px;
+}
+
+.home-h1 {
+  grid-column: 1 / span 7;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.home-h1-a {
+  color: var(--muted);
+}
+
+.home-h1-b {
+  display: block;
+  color: var(--ink);
+}
+
+.home-side {
+  grid-column: 8 / span 5;
+  min-width: 0;
+  max-width: 560px;
+  padding: 10px 0 0 12px;
+}
+
+.home-lead {
+  max-width: 44ch;
+  margin: 0 0 24px;
+  font-size: var(--step-lead);
+}
+
+.home-note {
+  margin: 0;
+  padding-top: 12px;
+  font-size: var(--step-small);
+}
+
+.home-note a,
+.home-docs a,
+.home-cap a,
+.home-limits a {
+  color: var(--ink);
+}
+
+/* A paragraph that holds only a link: the target is 44px high. */
+.home-note a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* ---- diagram frame ---- */
+.home-diagram {
+  position: relative;
+}
+
+.home-diagram .pipeline {
+  position: relative;
+}
+
+/* ---- lower section: one reading column ---- */
+.home-run {
+  position: relative;
+  padding-top: 80px;
+  padding-bottom: 20px;
+}
+
+.home-col {
+  position: relative;
+  grid-column: 4 / span 6;
+  min-width: 0;
+}
+
+/* The hatched tab: an svg path of 45 degree strokes in the hatch token inside a 1px --rule outline, in the margin left of the column, level with the first line of the headline. */
+.home-tab {
+  position: absolute;
+  top: 8px;
+  left: -30px;
+  display: block;
+  width: 14px;
+  height: 92px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+}
+
+.home-hatch {
+  fill: none;
+  stroke: var(--hatch);
+  stroke-width: 1;
+}
+
+.home-h2 {
+  margin: 0 0 32px;
+  color: var(--muted);
+}
+
+.home-h2-ink {
+  color: var(--ink);
+}
+
+.home-step {
+  margin: 0 0 40px;
+}
+
+.home-o {
+  max-width: 75ch;
+  margin: 0 0 14px;
+  font-size: var(--step-body);
+  font-weight: 500;
+}
+
+/* A command block of a step: the surface ground and a 1px --rule outline, no radius, no button. */
+.home-call {
+  margin: 0;
+  padding: 18px 20px;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  line-height: 1.75;
+}
+
+/* The excerpt of the real output: the text face, line breaks kept. */
+.home-reply-fig {
+  margin: 0;
+}
+
+.home-reply {
+  padding: 20px 22px;
+  border: 1px solid var(--rule);
+  background: var(--frame);
+  color: var(--ink);
+  font-size: var(--step-body);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.home-cap {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: var(--step-small);
+}
+
+.home-docs {
+  margin: 0;
+  font-size: var(--step-small);
+}
+
+/* The limits sentence: a 2px accent rule on its start edge, no box and no fill. The accent is the rule only, never the red of the blocked slab. */
+.home-limits {
+  margin: 56px 0 0;
+  padding-inline-start: 16px;
+  border-inline-start: 2px solid var(--accent);
+  font-size: var(--step-body);
+}
+
+/* ---- phone ---- */
+@media (max-width: 820px) {
+  .home-hero {
+    padding-top: 36px;
+  }
+
+  .home-hero .grid {
+    gap: 22px;
+  }
+
+  .home-h1,
+  .home-side,
+  .home-col {
+    grid-column: 1 / -1;
+  }
+
+  .home-side {
+    max-width: none;
+    padding: 0;
+  }
+
+  .home-run {
+    padding-top: 56px;
+  }
+
+  .home-tab {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .home-call {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

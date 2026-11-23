@@ -1,14 +1,13 @@
 ---
 import Base from '../../layouts/Base.astro';
-import CommandBlock from '../../components/marketing/CommandBlock.astro';
+import Home from '../../components/marketing/Home.astro';
+import { frontmatter as content } from '../../content/pages/tr/home.md';
+import { homeFacts } from '../../lib/home.ts';
 
-const lead = 'Bu bir yer tutucu sayfadır; içerik sonraki bir görevde gelecek.';
+// The pin facts are read at build time; a missing fact fails the build with the message of scripts/lib/pin-facts.mjs.
+const facts = homeFacts();
 ---
 
-<Base path="/tr/" title={{ kind: 'home' }} lead={lead}>
-  <div class="wrap">
-    <h1>Proofline</h1>
-    <p>{lead}</p>
-    <CommandBlock lang="tr" label="Claude Code" lines={['/plugin marketplace add furkansarikaya/proofline', '/plugin install proofline@proofline']} />
-  </div>
+<Base path="/tr/" title={{ kind: 'home' }} lead={content.lead} source={{ kind: 'site', translatedFrom: content.translatedFrom }}>
+  <Home lang="tr" content={content} facts={facts} />
 </Base>

@@ -382,7 +382,7 @@ describe('base styles', () => {
       '--step-head': [34, 70],
       '--step-h2': [26, 36],
       '--step-lead': [17],
-      '--step-body': [15.5, 17],
+      '--step-body': [16, 17],
       '--step-small': [13.5, 15],
       '--step-mono': [13.5, 14],
     };
@@ -394,9 +394,27 @@ describe('base styles', () => {
     assert.match(step(rootRules, '--step-head'), /4\.9vw/, 'step-head scales with 4.9vw on desktop');
     const phoneHead = step(phone, '--step-head');
     assert.ok(phoneHead, 'step-head has a value for widths up to 820px');
-    assert.deepEqual(pxNumbers(phoneHead), [28, 40], 'step-head is 28 to 40 px on a phone');
+    assert.deepEqual(pxNumbers(phoneHead), [28, 52], 'step-head is 28 to 52 px on a phone');
     assert.match(phoneHead, /8vw/, 'step-head scales with 8vw on a phone');
-    assert.equal(Math.min(...pxNumbers(step(rootRules, '--step-body'))), 15.5, 'body never goes below 15.5px');
+    assert.equal(Math.min(...pxNumbers(step(rootRules, '--step-body'))), 16, 'body never goes below 16px');
+  });
+
+  it('base.css themes the text selection and the scrollbar with tokens', () => {
+    const rules = baseCss();
+    const selection = rules.filter((r) => sameSelector(r, '::selection') && r.at.length === 0);
+    assert.equal(selection.length, 1, 'one rule has ::selection as its only selector');
+    assert.equal(nospace(declOf(selection[0], 'background-color')), 'var(--ink)', 'selected text takes the --ink ground');
+    assert.equal(nospace(declOf(selection[0], 'color')), 'var(--bg)', 'selected text takes the --bg colour');
+    const html = rules.filter((r) => sameSelector(r, 'html') && r.at.length === 0 && declOf(r, 'scrollbar-color') !== undefined);
+    assert.equal(html.length, 1, 'the html rule sets scrollbar-color');
+    assert.equal(declOf(html[0], 'scrollbar-color').replace(/\s+/g, ' ').trim(), 'var(--muted) var(--bg)', 'the scrollbar thumb is --muted on a --bg track');
+    // The drawing is SVG text, painted with `fill` and not with `color`: its labels need a selection fill of their own, or selected text is ink on ink.
+    const drawing = rules.filter((r) => sameSelector(r, '.pipelinetext::selection') && r.at.length === 0);
+    assert.equal(drawing.length, 1, 'one rule has .pipeline text::selection as its only selector');
+    assert.equal(nospace(declOf(drawing[0], 'fill')), 'var(--bg)', 'selected drawing text is filled with --bg, the colour of selected page text');
+    for (const value of [declOf(selection[0], 'background-color'), declOf(selection[0], 'color'), declOf(html[0], 'scrollbar-color'), declOf(drawing[0], 'fill')]) {
+      assert.doesNotMatch(value, /#[0-9a-f]{3,8}\b|rgba?\s*\(|gradient|url\s*\(/i, `"${value}" holds no literal colour, gradient or url`);
+    }
   });
 
   it('base.css has a 12 column bordered grid, the two breakpoints and no radius, shadow or gradient', () => {
@@ -479,8 +497,12 @@ describe('built site', () => {
     // The scan reads a closed build whatever the shell exports: the four indexing variables are removed from the inherited environment.
     const env = { ...process.env };
     for (const key of ENV_KEYS) delete env[key];
-    const r = spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', outDir], { cwd: root, encoding: 'utf8', env });
-    build = { status: r.status, stderr: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+    // The home pages read the pin facts of the pinned documents while they are built (TASK-019), so the fetch comes first, as in `npm run build`.
+    const fetched = spawnSync(process.execPath, [join(root, 'scripts', 'sync.mjs'), 'fetch'], { cwd: root, encoding: 'utf8', env });
+    const r = fetched.status === 0
+      ? spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', outDir], { cwd: root, encoding: 'utf8', env })
+      : fetched;
+    build = { status: r.status, stderr: `${fetched.stdout ?? ''}${fetched.stderr ?? ''}${r.stdout ?? ''}${r.stderr ?? ''}` };
   }, { timeout: 120000 });
 
   const pages = () => walk(outDir).filter((f) => f.endsWith('.html'));
@@ -497,9 +519,10 @@ describe('built site', () => {
     return $.html();
   };
 
-  // The repository navigation links (ADR 0006 point 3 and the footer): `a` elements whose address is exactly one of the three repository
-  // addresses. Only their href is skipped; a resource address (src, stylesheet href) or any other address stays in the scan (ADR 0008 point 4).
-  const REPOSITORY_LINK = /^https:\/\/github\.com\/furkansarikaya\/(?:proofline|proofline-site|proofline\/blob\/(?:[0-9a-f]{40}|main)\/LICENSE)$/;
+  // The repository navigation links (ADR 0006 point 3, the footer, and DESIGN-marketing R-5 and R-6 for the home page): `a` elements whose address is exactly
+  // one of the repository addresses: the two repositories, the LICENSE, and the README (Status) and the workflow page (Real output) at the pinned commit.
+  // Only their href is skipped; a resource address (src, stylesheet href) or any other address stays in the scan (ADR 0008 point 4).
+  const REPOSITORY_LINK = /^https:\/\/github\.com\/furkansarikaya\/(?:proofline|proofline-site|proofline\/blob\/(?:[0-9a-f]{40}|main)\/LICENSE|proofline\/blob\/[0-9a-f]{40}\/README\.md#status|proofline\/blob\/[0-9a-f]{40}\/docs\/concepts\/workflow\.md#real-output)$/;
   const withoutRepositoryLinks = (html) => {
     const $ = load(html);
     $('a[href]').filter((_, el) => REPOSITORY_LINK.test(el.attribs.href)).removeAttr('href');
@@ -524,6 +547,9 @@ describe('built site', () => {
       '<a href="https://github.com/furkansarikaya/proofline-site">b</a>',
       `<a href="https://github.com/furkansarikaya/proofline/blob/${'0123456789abcdef'.repeat(2)}01234567/LICENSE">c</a>`,
       '<a href="https://github.com/furkansarikaya/proofline/blob/main/LICENSE">d</a>',
+      `<a href="https://github.com/furkansarikaya/proofline/blob/${'0123456789abcdef'.repeat(2)}01234567/README.md#status">j</a>`,
+      `<a href="https://github.com/furkansarikaya/proofline/blob/${'0123456789abcdef'.repeat(2)}01234567/docs/concepts/workflow.md#real-output">k</a>`,
+      '<a href="https://github.com/furkansarikaya/proofline/blob/main/README.md#status">l</a>',
       '<a href="https://github.com/furkansarikaya/other">e</a>',
       '<a href="https://github.com/furkansarikaya/proofline/archive/main.zip">f</a>',
       '<a href="http://github.com/furkansarikaya/proofline">g</a>',
@@ -532,13 +558,14 @@ describe('built site', () => {
       '<link rel="stylesheet" href="https://github.com/furkansarikaya/proofline">',
       '<img src="https://github.com/furkansarikaya/proofline" alt="">',
     ].join(''));
-    assert.equal(repositoryProbe.match(/https?:\/\/github\.com\/[^"]*/g)?.length, 7, 'the exact addresses are skipped and every other github address stays in the scan');
-    for (const kept of ['furkansarikaya/other', 'archive/main.zip', 'http://github.com/furkansarikaya/proofline"', 'proofline?x=1', 'blob/xyz/LICENSE']) {
+    assert.equal(repositoryProbe.match(/https?:\/\/github\.com\/[^"]*/g)?.length, 8, 'the exact addresses are skipped and every other github address stays in the scan');
+    for (const kept of ['furkansarikaya/other', 'archive/main.zip', 'http://github.com/furkansarikaya/proofline"', 'proofline?x=1', 'blob/xyz/LICENSE', 'blob/main/README.md#status']) {
       assert.ok(repositoryProbe.includes(kept), `a repository-like address stays in the scan: ${kept}`);
     }
     assert.ok(/<link[^>]*href="https:\/\/github\.com\/furkansarikaya\/proofline"/.test(repositoryProbe), 'a stylesheet link to the repository stays in the scan');
     assert.ok(/<img[^>]*src="https:\/\/github\.com\/furkansarikaya\/proofline"/.test(repositoryProbe), 'an image from the repository stays in the scan');
-    for (const skipped of ['>a<', '>b<', '>c<', '>d<']) assert.ok(repositoryProbe.includes(skipped), `the link text ${skipped} is kept`);
+    for (const skipped of ['>a<', '>b<', '>c<', '>d<', '>j<', '>k<']) assert.ok(repositoryProbe.includes(skipped), `the link text ${skipped} is kept`);
+    assert.equal(/href="https:\/\/github\.com\/furkansarikaya\/proofline\/blob\/[0-9a-f]{40}\/(?:README\.md#status|docs\/concepts\/workflow\.md#real-output)"/.test(repositoryProbe), false, 'the pinned README and workflow links lose their href');
     assert.equal(/href="https:\/\/github\.com\/furkansarikaya\/proofline(?:-site)?"[^>]*>(?:a|b)</.test(repositoryProbe), false, 'the exact repository links lose their href');
     for (const kept of ['https://cdn.example/a.css', 'http://img.example/b.png', 'https://cdn.example/c.css', 'https://cdn.example/d']) {
       assert.ok(probe.includes(kept), `any other address stays in the scan: ${kept}`);
@@ -548,6 +575,7 @@ describe('built site', () => {
       for (const needed of [
         'property="og:image" content="https://proofline.technology/og-default.png"', 'rel="alternate"', 'application/ld+json',
         'href="https://github.com/furkansarikaya/proofline"', 'href="https://github.com/furkansarikaya/proofline-site"', '/LICENSE"',
+        '/README.md#status"', '/docs/concepts/workflow.md#real-output"',
       ]) {
         assert.ok(raw.includes(needed), `dist/${rel} holds the head metadata the scan skips: ${needed}`);
       }
@@ -577,7 +605,11 @@ describe('built site', () => {
     assert.ok(baseAt > tokensAt, 'Base.astro imports ../styles/base.css after tokens.css');
     const componentsAt = layout.search(/import\s+['"]\.\.\/styles\/components\.css['"]/);
     assert.ok(componentsAt > baseAt, 'Base.astro imports ../styles/components.css after base.css');
-    for (const name of ['Header', 'Footer', 'CommandBlock']) {
+    const pipelineAt = layout.search(/import\s+['"]\.\.\/styles\/pipeline\.css['"]/);
+    const homeAt = layout.search(/import\s+['"]\.\.\/styles\/home\.css['"]/);
+    assert.ok(pipelineAt > componentsAt, 'Base.astro imports ../styles/pipeline.css after components.css');
+    assert.ok(homeAt > pipelineAt, 'Base.astro imports ../styles/home.css after pipeline.css');
+    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits']) {
       assert.ok(read(`src/components/marketing/${name}.astro`) !== '', `${name}.astro exists`);
       assert.doesNotMatch(read(`src/components/marketing/${name}.astro`), /import\s+['"][^'"]*\.css['"]/, `${name}.astro imports no stylesheet, Base.astro bundles the one`);
     }

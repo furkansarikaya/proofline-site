@@ -96,7 +96,7 @@
   --step-head: clamp(34px, 4.9vw, 70px);
   --step-h2: clamp(26px, 2.6vw, 36px);
   --step-lead: 17px;
-  --step-body: clamp(15.5px, 1.7vw, 17px);
+  --step-body: clamp(16px, 1.7vw, 17px);
   --step-small: clamp(13.5px, 1.5vw, 15px);
   --step-mono: clamp(13.5px, 1.4vw, 14px);
   --nav-gap: 26px;
@@ -110,7 +110,7 @@
 
 @media (max-width: 820px) {
   :root {
-    --step-head: clamp(28px, 8vw, 40px);
+    --step-head: clamp(28px, 8vw, 52px);
   }
 }
 
@@ -122,6 +122,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--muted) var(--bg);
 }
 
 body {
@@ -180,6 +181,17 @@ a {
   color: inherit;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+}
+
+/* Selected text swaps ink and ground (the ink on bg contrast pair). */
+::selection {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+
+/* The drawing's labels are SVG text: the browser paints them with fill, not color, so without this they stay ink on the ink ground. */
+.pipeline text::selection {
+  fill: var(--bg);
 }
 
 a:focus-visible,

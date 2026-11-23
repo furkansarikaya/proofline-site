@@ -1,0 +1,52 @@
+---
+// The home page (TASK-019): composes the first row, the pipeline diagram, and the lower section from the content file of the page's language and the pin facts.
+// Both pages (src/pages/index.astro, src/pages/tr/index.astro) and the test renderer (tests/fixtures/home/render.mjs) render this one component.
+// Pin-derived text is read from `facts` and nothing else; every command is checked against the README commands of the pin.
+import type { Lang } from '../../lib/meta.ts';
+import { SITE_REPO_URL } from '../../lib/nav.ts';
+import { INSTALL, TASK_LINES, excerptText, homeLinks, pinnedCommands, readHomeContent, readmeHref, workflowHref, workflowLabel } from '../../lib/home.ts';
+import type { HomeFacts } from '../../lib/home.ts';
+import type { Pair } from '../../lib/translations.ts';
+import Hero from './Hero.astro';
+import Limits from './Limits.astro';
+import PipelineDiagram from './PipelineDiagram.astro';
+import RealOutput from './RealOutput.astro';
+import Steps from './Steps.astro';
+
+interface Props {
+  lang: Lang;
+  /** The frontmatter of the language's home content file. */
+  content: unknown;
+  facts: HomeFacts;
+  /** The registered page pairs; the translation index when absent. */
+  pairs?: readonly Pair[];
+}
+
+const { lang, content: raw, facts, pairs } = Astro.props;
+const content = readHomeContent(raw);
+// A link to another page is printed only when its page pair is registered (src/lib/home.ts).
+const links = homeLinks(lang, pairs);
+const installLines = pinnedCommands(facts.readme_commands, INSTALL.lines);
+const install = { label: INSTALL.label, lines: installLines };
+const taskLines = pinnedCommands(facts.readme_commands, TASK_LINES);
+const real = facts.real_output;
+const docs = links.concepts !== undefined && links.skills !== undefined
+  ? {
+      before: content.docs.before,
+      middle: content.docs.middle,
+      after: content.docs.after,
+      concepts: { href: links.concepts, text: content.docs.concepts },
+      skills: { href: links.skills, text: content.docs.skills },
+    }
+  : undefined;
+---
+
+<div class="home">
+  <div class="wrap home-lines" aria-hidden="true"><div class="gridlines">{Array.from({ length: 12 }, () => <span></span>)}</div></div>
+  <Hero lang={lang} headline={content.headline} lead={content.lead} install={install} note={links.getStarted === undefined ? undefined : { href: links.getStarted, text: content.note }} />
+  <div class="wrap home-diagram"><PipelineDiagram lang={lang} /></div>
+  <Steps lang={lang} heading={content.run.heading} steps={content.run.steps} installLines={installLines} taskLines={taskLines} docs={docs}>
+    <RealOutput slot="reply" text={excerptText(real)} caption={content.excerpt.caption} sourceLabel={content.excerpt.source} href={workflowHref(facts.commit, real.anchor)} linkText={workflowLabel(real.anchor)} />
+    <Limits parts={{ before: content.limits.before, middle: content.limits.middle, after: content.limits.after }} site={{ href: SITE_REPO_URL, text: content.limits.site }} readme={{ href: readmeHref(facts.commit), text: content.limits.readme }} />
+  </Steps>
+</div>

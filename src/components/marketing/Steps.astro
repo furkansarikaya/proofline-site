@@ -1,0 +1,58 @@
+---
+// The lower section of the home page (TASK-019): one reading column that starts at column 4 and is six columns wide, a hatched tab beside the two-tone section headline,
+// and the three steps. Steps 1 and 2 hold a plain command block each (no id, no button: the one copyable block is in the first row); step 3 holds the slot `reply`
+// (the real output); the optional docs sentence and the default slot (the limits sentence) follow. No CSS import: Base.astro bundles src/styles/home.css.
+import type { Lang } from '../../lib/meta.ts';
+
+interface Props {
+  lang: Lang;
+  heading: { before: string; ink: string; after: string };
+  steps: readonly [string, string, string];
+  installLines: readonly string[];
+  taskLines: readonly string[];
+  /** The sentence that links the concepts section and the skill catalogue; absent while their page pair is not registered, and then no paragraph is printed. */
+  docs?: {
+    before: string;
+    middle: string;
+    after: string;
+    concepts: { href: string; text: string };
+    skills: { href: string; text: string };
+  };
+}
+
+const { lang, heading, steps, installLines, taskLines, docs } = Astro.props;
+
+// The hatched tab: one svg path of 45 degree strokes 8 px apart (11.31 px along the edge), built as PipelineDiagram builds the rail hatch and stroked through var(--hatch)
+// by src/styles/home.css. It is not a gradient and not a background image. The box is 14 by 92.
+const TAB_W = 14;
+const TAB_H = 92;
+const GAP = Math.round(8 * Math.SQRT2 * 100) / 100;
+const strokes: string[] = [];
+for (let y = -TAB_W; y < TAB_H; y += GAP) strokes.push(`M0 ${Math.round((y + TAB_W) * 100) / 100}L${TAB_W} ${Math.round(y * 100) / 100}`);
+const tab = strokes.join('');
+// The links to English-only pages (the Turkish page) name the language of their target.
+const targetLang = lang === 'tr' ? 'en' : undefined;
+---
+
+<section class="wrap home-run">
+  <div class="grid">
+    <div class="home-col">
+      <svg class="home-tab" viewBox={`0 0 ${TAB_W} ${TAB_H}`} aria-hidden="true" focusable="false"><path class="home-hatch" d={tab}></path></svg>
+      <h2 class="home-h2">{heading.before}<span class="home-h2-ink">{heading.ink}</span>{heading.after}</h2>
+      <div class="home-step">
+        <p class="home-o">{steps[0]}</p>
+        <pre class="home-call" lang="en" translate="no"><code>{installLines.join('\n')}</code></pre>
+      </div>
+      <div class="home-step">
+        <p class="home-o">{steps[1]}</p>
+        <pre class="home-call" lang="en" translate="no"><code>{taskLines.join('\n')}</code></pre>
+      </div>
+      <div class="home-step">
+        <p class="home-o">{steps[2]}</p>
+        <slot name="reply" />
+      </div>
+      {docs && <p class="home-docs">{docs.before}<a href={docs.concepts.href} hreflang={targetLang}>{docs.concepts.text}</a>{docs.middle}<a href={docs.skills.href} hreflang={targetLang}>{docs.skills.text}</a>{docs.after}</p>}
+      <slot />
+    </div>
+  </div>
+</section>

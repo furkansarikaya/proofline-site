@@ -41,10 +41,10 @@ Type scale (px at 1440 wide; fluid between the mobile and desktop values):
 
 | Step | Mobile | Desktop | Use |
 |---|---|---|---|
-| step-head | 28 to 40 (`8vw`) | 70 (`4.9vw`, max 70) | page headline, at most two lines |
+| step-head | 28 to 52 (`8vw`; 31.2 at 390 wide) | 70 (`4.9vw`, max 70) | page headline, at most two lines |
 | step-h2 | 26 | 36 | section headline |
 | step-lead | 17 | 17 | description |
-| step-body | 15.5 to 17 | 15.5 to 17 | body; on the marketing surface at most 75 characters a line; on the docs surface a text column of `33em` (measured: longest line 75 characters, see DESIGN-docs.md). Never `75ch`: `ch` is the width of a zero, and `75ch` gave lines of about 94 characters |
+| step-body | 16 to 17 | 16 to 17 | body; on the marketing surface at most 75 characters a line; on the docs surface a text column of `33em` (measured: longest line 75 characters, see DESIGN-docs.md). Never `75ch`: `ch` is the width of a zero, and `75ch` gave lines of about 94 characters |
 | step-small | 13.5 to 15 | 13.5 to 15 | captions, notes |
 | step-mono | 13.5 to 14 | 13.5 to 14 | commands |
 
@@ -62,6 +62,8 @@ Measured on the sample page (WCAG 2.x contrast ratio).
 | muted on bg (also the grey line of a two-tone headline) | 5.07 | 6.93 |
 | accent as focus ring on bg | 4.10 | 6.61 |
 | inactive icon (`--muted`) on bg | 5.07 | 6.93 |
+| selected text (`--bg` on an `--ink` ground, also the SVG labels of the diagram) | 14.21 | 15.15 |
+| scrollbar thumb (`--muted`) on its track (`--bg`) | 5.07 | 6.93 |
 
 Every text pair is at least 4.5. The accent is used as a fill or a ring only where 3:1 is enough (non-text), never for small text in the light theme.
 
@@ -107,3 +109,4 @@ The patterns centred title with two buttons and a floating panel, stat band, log
 - Decided 2026-11-20 (PRD N-5, ADR 0006 and 0008): one small same-origin controls script, at most 2048 bytes uncompressed, for the saved theme and the copy button; CI checks the size and that no other script is on the four pages. Without it the theme follows the system setting and the command is selected by hand.
 - Decided 2026-11-20 (docs surface design): docs pages load `docs.js` (at most 4096 bytes uncompressed) and the search script only; the size check and the "no other script" check run in CI (ADR 0008). The sample's `docs.js` is 2806 bytes; the 4096 limit leaves room for the search wiring.
 - Contrast of the diagram's red box against the teal box is 1.05 (light) and 1.51 (dark): the two states are told apart by shape and label, not by colour or lightness (DESIGN-marketing.md, R-1).
+- Decided 2026-11-23 (TASK-019, user option A): the two-line phone headline stays at 31.2 px at 390 wide, so its ratio to the 16 px body is 1.95, below the check minimum of 3 (design_type_scale, rows D-29 and D-68); the rows are waived. The copy button is hidden without the controls script by design (AC-14), so the design_no_script_visible rows D-84, D-87, D-92 and D-95 are waived.

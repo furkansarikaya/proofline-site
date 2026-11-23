@@ -1,5 +1,7 @@
 # Task: TASK-019 - Home page in English and Turkish
 
+**Status:** done
+
 ---
 origin: prd:site
 type: feature
@@ -108,3 +110,193 @@ COMPLEX - two or more modules (two pages, four components, content files, pin fa
 - `npm run check:links`
 - `npm run test:axe`
 - `npm run test:browser`
+
+## Proofline Status
+
+<!-- PROOFLINE-STATUS:BEGIN:TASK-019 -->
+- run: TASK-019
+- type: feature
+- stage: RUNNING (PLANNING, handoff PLANNED)
+- event: run-start
+- updated: 2026-11-23T12:37:53Z
+- runtime: claude
+- session: 8303465e-75e9-456e-b28c-83159dca7957
+- estimate: size L
+- duration: 0 min
+<!-- PROOFLINE-STATUS:END:TASK-019 -->
+
+## Completion Report
+
+<!-- COMPLETION-REPORT:BEGIN:TASK-019 -->
+# Completion Report: TASK-019
+
+<!-- proofline:summary:begin -->
+Changed: the English and Turkish home pages (hero, three steps, real output excerpt, pipeline diagram, limits) with their content files, helper, styles and tests, plus the type-scale and selection fixes in the design base.
+Verify: `npm run build && npm test`
+<!-- proofline:summary:end -->
+
+## Implementation Summary
+
+The home page exists in English and Turkish: `src/content/pages/en/home.md` and `tr/home.md` hold the text, `src/lib/home.ts` reads and checks it, and the `Home`, `Hero`, `Steps`, `RealOutput` and `Limits` components plus `PipelineDiagram` (now with an accessible section name) build the page, styled by `src/styles/home.css`. The real output excerpt is composed from the pinned facts; links to pages that do not exist yet are not printed.
+
+Two amendments were applied. Amendment 001 added `PipelineDiagram.astro` to the scope so the diagram section has an accessible name. Amendment 002 added `src/styles/base.css` after the user decided the design base is fixed in this task: phone body text is at least 16 px, the headline step is 28 to 52 px, and the selection colour and the scrollbar follow both themes. A fifth rule keeps selected diagram labels readable (`.pipeline text::selection`), found by the rules review.
+
+## TDD Evidence
+
+Worker evidence holds RED then GREEN per scope path with the plan commands and full test titles (see the Facts block). The last fix round recorded RED and GREEN for the selection rule and for the empty-value cases of `readHomeContent`.
+
+## Verification
+
+All plan commands passed on the final tree in the verifier's own evidence worktree: tests, build with the guards, determinism check, link check and the accessibility check. Every acceptance criterion AC-1 to AC-15 maps to a passing test named in the plan. The text of the Turkish caption and the docs sentence on the Turkish page was written by the implementer and is a human check (QA-2 records it); the links are not printed until the pairs are registered (AS-1).
+
+## Assumptions
+
+- AS-1 (low): the links to pages that do not exist yet are printed only when their page pair is registered — unverified
+- AS-2 (low): the AC-4 list count is taken over the main element — unverified
+- AS-3 (low): the AC-4 name scan skips the product name and the excerpt — unverified
+- AS-4 (low): the AC-9 numeral scan skips command blocks and the excerpt — unverified
+- AS-5 (low): the AC-12 language check covers the main element — unverified
+- AS-6 (low): the caption omits the run details of the sample — unverified
+- AS-7 (low): the excerpt shows its markdown markers as written — unverified
+- AS-8 (medium): one stylesheet link per page when Base imports the extra CSS files — unverified
+
+## Review Result
+
+- REVIEW_PLAN: pass; REVIEW_PLAN-1 info, the fifth `base.css` rule is requested behaviour because it fixes a defect of the new selection rule.
+- REVIEW_RULES: pass after one fix round; REVIEW_RULES-1 was blocking (selected diagram labels were ink on ink) and is fixed and re-reviewed.
+- REVIEW_TESTS: pass; earlier hollow findings (README command call sites, column spans, empty-value checks of `readHomeContent`) were strengthened and re-mutated.
+- SECURITY: pass, no findings.
+- Fix rounds: see the Facts block.
+
+## QA Result
+
+QA gate: waived by the user for the listed rows; all frozen scenarios passed. Findings of QA, as rows: QA-1 info, QA-2 info, QA-3 info, QA-10 info, QA-11 info (judged items and the two human checks), and QA-4, QA-5, QA-6, QA-7, QA-8, QA-9 blocking and waived (below). The QA design-group focus is waived with the same rows.
+- VERIFY: pass; VERIFY-1 info and VERIFY-2 info named design-document lines that the knowledge step then updated.
+
+## Unsupported Checks
+
+none
+
+## Waivers
+
+| Finding | Gate | Reason | Approval |
+|---|---|---|---|
+| QA-4 | QA | headline to body ratio 1.95 at 390 px on the English page (rule design_type_scale, row D-29); the user chose option A, the two-line headline stays at 31.2 px; fails identically on the base | user, approve qa-4 |
+| QA-5 | QA | same rule on the Turkish page (row D-68) | user, approve qa-5 |
+| QA-6 | QA | copy button hidden without the controls script as AC-14 requires (row D-84) | user, approve qa-6 |
+| QA-7 | QA | same rule, English page (row D-87) | user, approve qa-7 |
+| QA-8 | QA | same rule, Turkish page (row D-92) | user, approve qa-8 |
+| QA-9 | QA | same rule, Turkish page (row D-95) | user, approve qa-9 |
+
+QA-11 of an earlier gate record was waived by the user earlier (approve qa-11) for the same copy-button rule and is recorded as an approved known issue for the batch.
+
+NOT_RERUN lines:
+
+- REVIEW_PLAN:plan: not reproduced (NOT_RERUN)
+- REVIEW_RULES:rules: not reproduced (NOT_RERUN)
+- REVIEW_TESTS:tests: not reproduced (NOT_RERUN)
+- SECURITY:-: not reproduced (NOT_RERUN)
+- QA:-: not reproduced (NOT_RERUN)
+
+## Execution
+
+Generated from the decision records by `agent.sh report-execution TASK-019` when the report is published; never edited by hand.
+
+| role | focus | runtime | model | effort | signals | note |
+|---|---|---|---|---|---|---|
+| explorer | - | claude | sonnet | medium | none | agent path |
+| architect | - | claude | opus | high | none | agent path |
+| designer | - | claude | sonnet | medium | none | agent path |
+| qa | - | claude | sonnet | medium | none | agent path |
+| implementer | - | claude | sonnet | high | none | agent path |
+| implementer | - | claude | opus | high | large_diff | escalated (ESCALATED_MODEL); agent path |
+| reviewer | plan | claude | opus | high | large_diff | escalated (ESCALATED_MODEL); agent path |
+| reviewer | rules | claude | sonnet | high | large_diff | agent path |
+| reviewer | tests | claude | sonnet | high | large_diff | agent path |
+| security_reviewer | - | claude | opus | high | large_diff | agent path |
+| qa | - | claude | sonnet | medium | large_diff | agent path |
+| qa | visual | claude | sonnet | medium | large_diff | agent path |
+| qa | - | claude | sonnet | medium | large_diff | agent path |
+| implementer | - | claude | sonnet | high | large_diff | agent path |
+| reviewer | plan | claude | sonnet | high | large_diff | agent path |
+| reviewer | rules | claude | sonnet | high | large_diff | agent path |
+| reviewer | tests | claude | sonnet | high | large_diff,recent_fail_same_focus | agent path |
+| security_reviewer | - | claude | opus | high | large_diff | agent path |
+| qa | - | claude | sonnet | medium | large_diff | agent path |
+| qa | visual | claude | sonnet | medium | large_diff,recent_fail_same_focus | agent path |
+| architect | - | claude | opus | high | large_diff | agent path |
+| qa | - | claude | sonnet | medium | large_diff | agent path |
+| implementer | - | claude | sonnet | high | large_diff | agent path |
+| reviewer | plan | claude | sonnet | high | large_diff | agent path |
+| reviewer | rules | claude | sonnet | high | large_diff | agent path |
+| reviewer | tests | claude | sonnet | high | large_diff | agent path |
+| security_reviewer | - | claude | opus | high | large_diff | agent path |
+| qa | - | claude | sonnet | medium | large_diff | agent path |
+| qa | visual | claude | sonnet | medium | large_diff,recent_fail_same_focus | agent path |
+| implementer | - | claude | sonnet | high | large_diff | agent path |
+| reviewer | plan | claude | sonnet | high | large_diff | agent path |
+| reviewer | rules | claude | sonnet | high | large_diff,recent_fail_same_focus | agent path |
+| reviewer | tests | claude | sonnet | high | large_diff | agent path |
+| security_reviewer | - | claude | opus | high | large_diff | agent path |
+| qa | - | claude | sonnet | medium | large_diff | agent path |
+| qa | visual | claude | sonnet | medium | large_diff,recent_fail_same_focus | agent path |
+| verifier | - | claude | sonnet | medium | large_diff | agent path |
+
+## Amendments
+
+- 001-pipeline-section-name: scope path `PipelineDiagram.astro` added so the diagram section has an accessible name (scope approved by the user).
+- 002-design-base-fix: scope path `src/styles/base.css` added for the type scale and the selection and scrollbar colours (scope approved by the user).
+
+## Reopen History
+
+none
+
+## Known Limitations / Follow-up
+
+- The headline drops from 52 px at 820 px to about 40 px at 821 px when the layout goes to two columns; accepted in amendment 002.
+- `docs/design/DESIGN-docs.md` names a different selection and scrollbar for the docs surface; the docs task has to reconcile it.
+- The selection fix was proven in one engine only; others were not run.
+- A line of the limits sentence can hold more than 75 characters at some widths; not new in this task.
+
+<!-- proofline:claims:begin -->
+## Verification claims
+
+Generated from the gate records by the publish step and checked again by verify-completion-report; never edited by hand. A gate or check is "ran on the final tree" only when its record carries the fingerprint of the tree being published. No sentence outside this block may claim a visual, browser, screenshot or UI check.
+
+- Gate SECRETS: ran on the final tree: pass (gate SECRETS, record 22)
+- Gate REVIEW_PLAN: ran on the final tree: pass (gate REVIEW_PLAN, record 23)
+- Gate REVIEW_RULES: ran on the final tree: pass (gate REVIEW_RULES, record 25)
+- Gate REVIEW_TESTS: ran on the final tree: pass (gate REVIEW_TESTS, record 28)
+- Gate SECURITY: ran on the final tree: pass (gate SECURITY, record 24)
+- Gate QA: ran on the final tree: pass (gate QA, record 26)
+- Visual/browser check: failed on the final tree and was waived by the user (visual/browser check, gate QA:visual, record 27)
+- Gate VERIFY: ran on the final tree: pass (gate VERIFY, record 29)
+
+Final message line (paste it unchanged): Verification claims (from the ledger): 7 of 7 gates hold a record for the final tree; visual/browser check: failed on the final tree and was waived by the user (gate QA:visual, record 27).
+Claims-hash: 65a78e2ab60af56b48d0a80363cb979899cfcc828b845ae58ba826bd5cfef2fa
+<!-- proofline:claims:end -->
+
+<!-- proofline:facts:begin -->
+## Facts
+
+Generated from the run records by `agent.sh report-facts TASK-019` when the report is published; never edited by hand. Numbers in the text above must match it.
+
+- Class: COMPLEX
+- Required gates: 7
+- Gate SECRETS: pass; findings: none
+- Gate REVIEW_PLAN: pass; findings: REVIEW_PLAN-1
+- Gate REVIEW_RULES: pass; findings: REVIEW_RULES-1
+- Gate REVIEW_TESTS: pass; findings: none
+- Gate SECURITY: pass; findings: none
+- Gate QA: waived; findings: QA-1 QA-2 QA-3 QA-4 QA-5 QA-6 QA-7 QA-8
+  - Focus QA:visual: waived; findings: QA-1 QA-10 QA-11 QA-2 QA-3 QA-4 QA-5 QA-6 QA-7 QA-8 QA-9
+- Gate VERIFY: pass; findings: VERIFY-1 VERIFY-2
+- Friction notes recorded (A200): proofline_bug 0, user-command 0, user-shell 0
+- Knowledge step: KNOWLEDGE_DONE
+- Fix rounds: 1 of 2
+- Refreezes: 2
+- Files changed (task-owned paths): 21
+- Worker-evidence run records: total 27, ended pass 12, ended fail 15 (a RED record ends fail on purpose; this is not a count of failing tests)
+- Test cases: no record carries the number of individual tests, so no such number is stated here.
+<!-- proofline:facts:end -->
+<!-- COMPLETION-REPORT:END:TASK-019 -->

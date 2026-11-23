@@ -1,0 +1,20 @@
+---
+// The real output of a finished run (TASK-019, DESIGN-marketing R-5): the excerpt exactly as the pin facts compose it, always `lang="en"`, and its caption with the link to the
+// pinned source. The text is shown as written, with its Markdown markers: it is compared character for character with the real output fact.
+interface Props {
+  /** The composed excerpt (`excerptText` of src/lib/home.ts). */
+  text: string;
+  caption: string;
+  /** The label in front of the link, for example "Source:". */
+  sourceLabel: string;
+  href: string;
+  linkText: string;
+}
+
+const { text, caption, sourceLabel, href, linkText } = Astro.props;
+---
+
+<figure class="home-reply-fig">
+  <div class="home-reply" lang="en">{text}</div>
+  <figcaption class="home-cap">{caption} {sourceLabel} <a href={href}>{linkText}</a></figcaption>
+</figure>
