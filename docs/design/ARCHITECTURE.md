@@ -39,7 +39,7 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | C16 | Transform, sanitize, link map (`scripts/lib/transform.mjs`) | component | `scripts` | new | frontmatter, remark-parse + remark-gfm, HTML as text, comments dropped, links mapped, HTML + `.md` + manifest |
 | C17 | Pin facts extractor (`scripts/lib/pin-facts.mjs`) | component | `scripts` | new | proof.md figures and anchor; README Status sentences and Install-range commands; the Real output excerpt of docs/concepts/workflow.md; fails when missing |
 | C18 | Translation index (`src/lib/translations`) | component | `src` | new | pairs, hreflang, sitemap alternates, switcher, staleness |
-| C19 | Pages, layouts, endpoints | component | `src` | new | address table, titles, footer, indexing switch; one controls script (<= 2048 B) on four site pages, no other |
+| C19 | Pages, layouts, endpoints | component | `src` | new | address table, titles, footer; indexing switch (`src/lib/indexing.ts`: fail-closed, only `VERCEL_ENV=production` or `SITE_INDEXABLE=1` opens the site) with the `sitemap.xml` and `robots.txt` endpoints, the canonical link and the Google and Bing verification meta tags; one controls script (<= 2048 B) on four site pages, no other |
 | C20 | Search index step | component | `package.json` | new | `pagefind --site dist` |
 | C21 | Dist checker (`scripts/check-dist.mjs`) | component | `scripts` | new | static checks over `dist/` |
 | C22 | Local static server (`scripts/serve-dist.mjs`) | component | `scripts` | new | vercel.json semantics for browser checks |

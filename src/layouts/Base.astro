@@ -6,6 +6,7 @@ import Footer from '../components/marketing/Footer.astro';
 import Header from '../components/marketing/Header.astro';
 import { buildHead } from '../lib/meta.ts';
 import type { PageTitle } from '../lib/meta.ts';
+import { canonicalUrl as canonicalFor, indexing, verificationMeta } from '../lib/indexing.ts';
 import { controlsScript } from '../lib/nav.ts';
 import { alternates, checkStale, langOf } from '../lib/translations.ts';
 import type { StaleSource } from '../lib/translations.ts';
@@ -23,6 +24,8 @@ const { path, title, lead, source } = Astro.props;
 const lang = langOf(path);
 const head = buildHead({ page: path, lang, title, lead });
 const links = alternates(path);
+// The indexing switch (src/lib/indexing.ts) decides the robots meta, the canonical link and the verification metas.
+const canonical = canonicalFor(path);
 // The stale flag is kept for the notice of the Turkish guides (TASK-013); this layout only prints the build warning.
 if (source) checkStale(path, source);
 ---
@@ -32,14 +35,16 @@ if (source) checkStale(path, source);
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
+    {!indexing.indexable && <meta name="robots" content="noindex, nofollow" />}
     <title>{head.title}</title>
     <meta name="description" content={head.description} />
     <meta property="og:title" content={head.title} />
     <meta property="og:description" content={head.description} />
     <meta property="og:image" content={head.ogImage} />
     <meta property="og:image:alt" content={head.ogImageAlt} />
+    {indexing.verification.map((v) => verificationMeta(v)).filter((tag) => tag !== null).map((tag) => <Fragment set:html={tag} />)}
     {controlsScript(path) && <script is:inline src="/assets/controls.js"></script>}
+    {canonical && <link rel="canonical" href={canonical} />}
     {links.map((link) => <link rel="alternate" hreflang={link.hreflang} href={link.href} />)}
     {head.jsonLd && <script type="application/ld+json" is:inline set:html={head.jsonLd}></script>}
   </head>
