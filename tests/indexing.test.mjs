@@ -356,7 +356,7 @@ describe('variant builds', () => {
   it('closed build: noindex on every page, closed robots.txt, no sitemap and the blocked log line', () => {
     const b = build('closed');
     const pages = htmlOf(b);
-    assert.deepEqual(pages, ['404.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/index.html']);
+    assert.deepEqual(pages, ['404.html', 'claude-code-and-codex/index.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/claude-code-ve-codex/index.html', 'tr/index.html']);
     for (const rel of pages) {
       const $ = pageOf(b, rel);
       assert.equal($('meta[name="robots"]').length, 1, `${rel} holds one robots meta`);
@@ -375,7 +375,7 @@ describe('variant builds', () => {
   it('production build: no robots meta, open robots.txt with the sitemap address, sitemap present and the allowed log line', () => {
     const b = build('production');
     const pages = htmlOf(b);
-    assert.deepEqual(pages, ['404.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/index.html']);
+    assert.deepEqual(pages, ['404.html', 'claude-code-and-codex/index.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/claude-code-ve-codex/index.html', 'tr/index.html']);
     for (const rel of pages) {
       const $ = pageOf(b, rel);
       assert.equal($('meta[name="robots"]').length, 0, `${rel} holds no robots meta`);
@@ -449,12 +449,15 @@ describe('variant builds', () => {
       }
       assert.deepEqual(byAddress.get(address), head, `${rel}: the sitemap alternates equal the head alternates`);
     }
-    for (const address of [`${ORIGIN}/`, `${ORIGIN}/tr/`, `${ORIGIN}/get-started/`, `${ORIGIN}/tr/baslarken/`]) {
+    for (const address of [`${ORIGIN}/`, `${ORIGIN}/tr/`, `${ORIGIN}/get-started/`, `${ORIGIN}/tr/baslarken/`, `${ORIGIN}/claude-code-and-codex/`, `${ORIGIN}/tr/claude-code-ve-codex/`]) {
       assert.deepEqual(byAddress.get(address).map((l) => l.hreflang), ['en', 'tr', 'x-default'], `${address} lists en, tr and x-default`);
     }
     assert.deepEqual(byAddress.get(`${ORIGIN}/`), byAddress.get(`${ORIGIN}/tr/`), 'the pair lists the same three');
     assert.deepEqual(byAddress.get(`${ORIGIN}/get-started/`), byAddress.get(`${ORIGIN}/tr/baslarken/`), 'the get-started pair lists the same three');
     assert.deepEqual(byAddress.get(`${ORIGIN}/get-started/`).map((l) => l.href), [`${ORIGIN}/get-started/`, `${ORIGIN}/tr/baslarken/`, `${ORIGIN}/get-started/`], 'the get-started pair points at its two pages');
+    assert.deepEqual(byAddress.get(`${ORIGIN}/claude-code-and-codex/`), byAddress.get(`${ORIGIN}/tr/claude-code-ve-codex/`), 'the Claude Code and Codex pair lists the same three');
+    assert.deepEqual(byAddress.get(`${ORIGIN}/claude-code-and-codex/`).map((l) => l.href), [`${ORIGIN}/claude-code-and-codex/`, `${ORIGIN}/tr/claude-code-ve-codex/`, `${ORIGIN}/claude-code-and-codex/`], 'the Claude Code and Codex pair points at its two pages, with x-default on the English one');
+    assert.deepEqual([...byAddress.keys()].sort(), [`${ORIGIN}/`, `${ORIGIN}/claude-code-and-codex/`, `${ORIGIN}/get-started/`, `${ORIGIN}/tr/`, `${ORIGIN}/tr/baslarken/`, `${ORIGIN}/tr/claude-code-ve-codex/`], 'the sitemap lists exactly the six pages of the three pairs');
     // a page with no pair has none, in the index and in a sitemap entry built for it
     assert.deepEqual(alternates('/solo/'), []);
     assert.equal(sitemapXml(['/solo/']).includes('xhtml:link'), false);

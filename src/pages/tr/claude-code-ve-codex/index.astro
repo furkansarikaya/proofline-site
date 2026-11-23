@@ -1,0 +1,14 @@
+---
+import Base from '../../../layouts/Base.astro';
+import AgentsPage from '../../../components/marketing/AgentsPage.astro';
+import { frontmatter } from '../../../content/pages/tr/claude-code-ve-codex.md';
+import { agentsFacts, readAgentsContent } from '../../../lib/agents.ts';
+
+// The pin facts are read at build time; a missing README sentence fails the build naming this page and the pattern (src/lib/agents.ts).
+const facts = agentsFacts('/tr/claude-code-ve-codex/');
+const content = readAgentsContent(frontmatter, 'tr');
+---
+
+<Base path="/tr/claude-code-ve-codex/" title={{ kind: 'site', text: content.title }} lead={content.lead} source={{ kind: 'site', translatedFrom: frontmatter.translatedFrom }}>
+  <AgentsPage lang="tr" content={content} facts={facts} />
+</Base>

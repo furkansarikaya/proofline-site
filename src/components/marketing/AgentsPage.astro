@@ -1,0 +1,60 @@
+---
+// The Claude Code and Codex page body (TASK-023): the H1 and lead, a part for Claude Code (the two plugin lines), a part for Codex (the clone and installer lines, then the Codex
+// limit of the README directly under them), a part for using both (the one README span as a marked inline element) and a link to the get-started page. Every command is checked
+// against the README commands and inline spans of the pin before the page renders (src/lib/get-started.ts), so a command the README does not hold fails the build naming the
+// page. The Codex limit sentence is `codex_sentence` of the pin facts, shown word for word in an element with `lang="en"`; it is never typed in a content file, and the Turkish
+// page puts its hand translation before it. A source link follows it on both pages: the Status section of the README at the pinned commit (`readmeHref`, as the home page links it). The blocks are the plain framed blocks of the get-started page (`gs-call`) and the limit has the rule of the home page
+// (`home-limits`): no stylesheet of its own, no CSS import here (Base.astro bundles the sheets).
+import type { Lang } from '../../lib/meta.ts';
+import { CLAUDE_LINES, CODEX_LINES, GET_STARTED_PAGE, pinnedLines, pinnedSpan } from '../../lib/get-started.ts';
+import { AGENTS_PAGE, BOTH_SPAN, readAgentsContent } from '../../lib/agents.ts';
+import type { AgentsFacts } from '../../lib/agents.ts';
+import { readmeHref } from '../../lib/home.ts';
+
+interface Props {
+  lang: Lang;
+  /** The frontmatter of the language's content file. */
+  content: unknown;
+  facts: AgentsFacts;
+}
+
+const { lang, content: raw, facts } = Astro.props;
+const content = readAgentsContent(raw, lang);
+const page = AGENTS_PAGE[lang];
+const claude = pinnedLines(page, facts.readme_commands, CLAUDE_LINES);
+const codex = pinnedLines(page, facts.readme_commands, CODEX_LINES);
+const span = pinnedSpan(page, facts.readme_inline_spans, BOTH_SPAN);
+if (typeof facts.codex_sentence !== 'string' || facts.codex_sentence.trim() === '') throw new Error(`${page}: the Codex sentence of the pin facts is empty`);
+const sentence = facts.codex_sentence;
+const translation = lang === 'tr' ? content.limit : undefined;
+---
+
+<div class="wrap gs">
+  <div class="grid">
+    <div class="gs-col">
+      <h1 class="gs-h1">{content.title}</h1>
+      <p class="gs-lead">{content.lead}</p>
+      <section class="gs-part">
+        <h2 class="gs-h2">Claude Code</h2>
+        <p class="gs-p">{content.claude.intro}</p>
+        <pre class="gs-call" lang="en" translate="no"><code>{claude.join('\n')}</code></pre>
+      </section>
+      <section class="gs-part">
+        <h2 class="gs-h2">Codex</h2>
+        <p class="gs-p">{content.codex.intro}</p>
+        <pre class="gs-call" lang="en" translate="no"><code>{codex.join('\n')}</code></pre>
+        <div class="home-limits">
+          {translation !== undefined && <p class="gs-p">{translation.translation}</p>}
+          {translation !== undefined && <p class="gs-p">{translation.original}</p>}
+          <p class="gs-p" lang="en">{sentence}</p>
+          <p class="gs-p"><a href={readmeHref(facts.commit)}>{content.limit.source}</a></p>
+        </div>
+      </section>
+      <section class="gs-part">
+        <h2 class="gs-h2">{content.both.heading}</h2>
+        <p class="gs-p">{content.both.before}<code class="gs-span" data-command lang="en" translate="no">{span}</code>{content.both.after}</p>
+      </section>
+      <p class="gs-p">{content.start.intro} <a href={GET_STARTED_PAGE[lang]}>{content.start.link}</a></p>
+    </div>
+  </div>
+</div>

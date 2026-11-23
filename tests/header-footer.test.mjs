@@ -106,8 +106,15 @@ describe('navigation module', () => {
     assert.deepEqual(menu('en', FIVE_PAIRS), MENU_EN);
     assert.deepEqual(menu('tr', FIVE_PAIRS), MENU_TR);
     assert.deepEqual(menu('en', [FIVE_PAIRS[4], FIVE_PAIRS[0]]), [MENU_EN[0], MENU_EN[4]], 'the fixed order holds whatever the order of the pairs');
-    assert.deepEqual(menu('en'), [MENU_EN[0], MENU_EN[1]], 'the real pairs give Home and Get started');
-    assert.deepEqual(menu('tr'), [MENU_TR[0], MENU_TR[1]]);
+    assert.deepEqual(menu('en'), [MENU_EN[0], MENU_EN[1], MENU_EN[4]], 'the real pairs give Home, Get started and Claude Code and Codex');
+    assert.deepEqual(menu('tr'), [MENU_TR[0], MENU_TR[1], MENU_TR[4]]);
+    // The entry of the page pair shows exactly when its pair is registered: with the two older pairs only it is absent, with the pair added it takes its fixed place.
+    assert.deepEqual(menu('en', [FIVE_PAIRS[0], FIVE_PAIRS[1]]), [MENU_EN[0], MENU_EN[1]], 'without the pair of the Claude Code and Codex page there is no entry for it');
+    assert.deepEqual(menu('tr', [FIVE_PAIRS[0], FIVE_PAIRS[1]]), [MENU_TR[0], MENU_TR[1]]);
+    assert.deepEqual(menu('en', [FIVE_PAIRS[4], FIVE_PAIRS[1], FIVE_PAIRS[0]]), [MENU_EN[0], MENU_EN[1], MENU_EN[4]], 'with the pair added the entry comes last of the three');
+    assert.deepEqual(menu('tr', [FIVE_PAIRS[4], FIVE_PAIRS[1], FIVE_PAIRS[0]]), [MENU_TR[0], MENU_TR[1], MENU_TR[4]]);
+    assert.deepEqual(menu('en').map((entry) => entry.label), ['Home', 'Get started', 'Claude Code + Codex'], 'the English labels');
+    assert.deepEqual(menu('tr').map((entry) => entry.label), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex'], 'the Turkish labels');
     assert.deepEqual(menu('en', []), [], 'no pair, no entry');
     assert.deepEqual(menu('en', [{ en: '/other/', tr: '/tr/baska/' }]), [], 'an unknown pair adds no entry');
     assert.deepEqual(MENU.map((e) => e.surface), ['site', 'site', 'docs', 'site', 'site']);
@@ -180,8 +187,9 @@ describe('built pages', { timeout: 120000 }, () => {
         assert.equal($(el).closest('nav').length, 1, `${rel}: an unnamed header control is a menu link`);
         return 'menu';
       });
-      // The real pairs list two entries today: Home and Get started (TASK-021).
-      assert.deepEqual(roles, ['brand', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
+      // The real pairs list three entries today: Home, Get started (TASK-021) and Claude Code and Codex (TASK-023).
+      assert.deepEqual(roles, ['brand', 'menu', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
+      assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4]], `${rel} menu entries`);
       const brand = $('header .brand');
       assert.equal(squash(brand.text()), 'proofline');
       assert.equal(brand.attr('href'), lang === 'tr' ? '/tr/' : '/', `${rel} brand target`);
@@ -192,6 +200,13 @@ describe('built pages', { timeout: 120000 }, () => {
     const aria = page('index.html')('header nav a[aria-current="page"]');
     assert.equal(aria.length, 1, 'the entry of the current page is marked');
     assert.equal(aria.attr('href'), '/');
+    // The page of the Claude Code and Codex pair lists the three entries and marks its own.
+    for (const [lang, rel, address] of [['en', 'claude-code-and-codex/index.html', '/claude-code-and-codex/'], ['tr', 'tr/claude-code-ve-codex/index.html', '/tr/claude-code-ve-codex/']]) {
+      const $ = page(rel);
+      const entries = lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4]];
+      assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), entries, `${rel} lists Home, Get started and Claude Code and Codex`);
+      assert.deepEqual($('header nav a[aria-current="page"]').toArray().map((a) => a.attribs.href), [address], `${rel} marks its own entry`);
+    }
   });
 
   it('menu never links to a missing address', () => {

@@ -8,7 +8,8 @@
 import { load } from 'cheerio';
 
 export const DOCS_INDEXES = ['/docs/', '/tr/docs/', '/docs/skills/'];
-export const GET_STARTED_PAGES = ['/get-started/', '/tr/baslarken/'];
+// The pages whose command lines and marked spans are compared with the README: the get-started pages and the Claude Code and Codex pages (TASK-023).
+export const GET_STARTED_PAGES = ['/get-started/', '/tr/baslarken/', '/claude-code-and-codex/', '/tr/claude-code-ve-codex/'];
 // The two patterns of the PRD AC-4 exactly as TASK.md writes them: flag `i` only, no word boundary (ARCHITECTURE "Trade-offs").
 export const INSTALL_TIME_PATTERNS = [/(?<![\w-])(five|5)[ -]?(minutes?|mins?)/i, /(?<![\w-])(beş|5)[ -]?(dakika|dk)/i];
 

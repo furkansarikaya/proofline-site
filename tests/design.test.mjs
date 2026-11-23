@@ -529,11 +529,12 @@ describe('built site', () => {
     return $.html();
   };
 
-  // The README clone line of the Codex part (TASK-021 AC-2) is a command, not a resource: on the two get-started pages only, a line of a command block (a `pre` with
+  // The README clone line of the Codex part (TASK-021 AC-2, TASK-023 AC-2) is a command, not a resource: on the four pages that show it only (the two get-started pages and the two
+  // Claude Code and Codex pages), a line of a command block (a `pre` with
   // lang="en" and translate="no") that equals the README line exactly is removed before the scan. The same text anywhere else (a paragraph, an inline code, a `pre` that
   // is not a command block, another page), another host or any other line of the block stays in the scan.
   const CLONE_LINE = 'git clone https://github.com/furkansarikaya/proofline';
-  const CLONE_PAGES = new Set(['dist/get-started/index.html', 'dist/tr/baslarken/index.html']);
+  const CLONE_PAGES = new Set(['dist/get-started/index.html', 'dist/tr/baslarken/index.html', 'dist/claude-code-and-codex/index.html', 'dist/tr/claude-code-ve-codex/index.html']);
   const withoutCloneLine = (name, html) => {
     if (!CLONE_PAGES.has(name)) return html;
     const $ = load(html);
@@ -588,6 +589,7 @@ describe('built site', () => {
     // The clone-line allowance, on probe pages: only the exact README line inside a command block of a get-started page leaves the scan.
     const INSTALL_LINE = 'node proofline/adapters/codex/install.mjs';
     const block = (text, attributes = ' lang="en" translate="no"') => `<html><head></head><body><pre class="gs-call"${attributes}><code>${text}</code></pre></body></html>`;
+    assert.deepEqual([...CLONE_PAGES].sort(), ['dist/claude-code-and-codex/index.html', 'dist/get-started/index.html', 'dist/tr/baslarken/index.html', 'dist/tr/claude-code-ve-codex/index.html'], 'the allowance names exactly four pages');
     for (const name of CLONE_PAGES) {
       const skipped = withoutCloneLine(name, block(`${CLONE_LINE}\n${INSTALL_LINE}`));
       assert.doesNotMatch(skipped, /https?:\/\//, `${name}: the clone line inside a command block is skipped`);
@@ -607,6 +609,18 @@ describe('built site', () => {
       ['dist/index.html', block(CLONE_LINE), 'the clone line in a command block of another page'],
       ['dist/404.html', block(CLONE_LINE), 'the clone line in a command block of the not-found page'],
       ['dist/get-started/other/index.html', block(CLONE_LINE), 'the clone line in a command block below a get-started address'],
+      ['dist/claude-code-and-codex/other/index.html', block(CLONE_LINE), 'the clone line in a command block below an agents address'],
+      ['dist/tr/claude-code-ve-codex/x.html', block(CLONE_LINE), 'the clone line in a command block of another file of the Turkish agents page'],
+      ['dist/trust/index.html', block(CLONE_LINE), 'the clone line in a command block of a fifth page'],
+      ['dist/claude-code-and-codex/index.html', `<html><body><p>${CLONE_LINE}</p></body></html>`, 'the clone line in a paragraph of the English agents page'],
+      ['dist/tr/claude-code-ve-codex/index.html', `<html><body><p><code lang="en" translate="no">${CLONE_LINE}</code></p></body></html>`, 'the clone line in an inline code of the Turkish agents page'],
+      ['dist/claude-code-and-codex/index.html', block(CLONE_LINE, ''), 'the clone line in a pre without lang and translate on the English agents page'],
+      ['dist/tr/claude-code-ve-codex/index.html', block(CLONE_LINE, ' lang="en"'), 'the clone line in a pre without translate="no" on the Turkish agents page'],
+      ['dist/tr/claude-code-ve-codex/index.html', block(CLONE_LINE, ' translate="no"'), 'the clone line in a pre without lang="en" on the Turkish agents page'],
+      ['dist/claude-code-and-codex/index.html', block('git clone https://gitlab.com/furkansarikaya/proofline'), 'the clone line with another host on the English agents page'],
+      ['dist/tr/claude-code-ve-codex/index.html', block(`${CLONE_LINE} extra`), 'the clone line with more text on the Turkish agents page'],
+      ['dist/claude-code-and-codex/index.html', block(`${CLONE_LINE}\ncurl https://example.com/install.sh`), 'another address in the same command block of the English agents page'],
+      ['dist/tr/claude-code-ve-codex/index.html', block(CLONE_LINE).replace('</body>', '<a href="https://example.com/">x</a></body>'), 'a link to another host on the Turkish agents page'],
     ];
     for (const [name, html, what] of cloneKept) assert.match(withoutCloneLine(name, html), /https?:\/\//, `${what} stays in the scan`);
     for (const name of CLONE_PAGES) {
@@ -655,7 +669,7 @@ describe('built site', () => {
     assert.ok(homeAt > pipelineAt, 'Base.astro imports ../styles/home.css after pipeline.css');
     const getStartedAt = layout.search(/import\s+['"]\.\.\/styles\/get-started\.css['"]/);
     assert.ok(getStartedAt > homeAt, 'Base.astro imports ../styles/get-started.css after home.css');
-    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits', 'GetStarted']) {
+    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits', 'GetStarted', 'AgentsPage']) {
       assert.ok(read(`src/components/marketing/${name}.astro`) !== '', `${name}.astro exists`);
       assert.doesNotMatch(read(`src/components/marketing/${name}.astro`), /import\s+['"][^'"]*\.css['"]/, `${name}.astro imports no stylesheet, Base.astro bundles the one`);
     }
@@ -663,7 +677,7 @@ describe('built site', () => {
     assert.equal(config.build.inlineStylesheets, 'never', 'astro.config.mjs sets build.inlineStylesheets to never');
     assert.equal(config.build.format, 'directory', 'the existing build format is kept');
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
-    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html']) {
+    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html']) {
       assert.ok(existsSync(join(outDir, rel)), `${rel} is built`);
       const $ = load(readFileSync(join(outDir, rel), 'utf8'));
       const links = $('link[rel~=stylesheet]').toArray();

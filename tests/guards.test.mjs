@@ -229,6 +229,52 @@ describe('get-started page commands (AC-1, AC-2, AC-3, AC-4)', () => {
   });
 });
 
+describe('Claude Code and Codex page commands (TASK-023 AC-3)', () => {
+  const NEW = [['claude-code-and-codex/index.html', '/claude-code-and-codex/'], ['tr/claude-code-ve-codex/index.html', '/tr/claude-code-ve-codex/']];
+  const SPAN_FACTS = { readme_commands: ['/plugin install proofline@proofline'], readme_inline_spans: ['proofline init --role implementer=codex'] };
+  const CLEAN = `${pre('/plugin install proofline@proofline')}<p>Run it with <code data-command lang="en" translate="no">proofline init --role implementer=codex</code> here.</p>`;
+
+  it('the two new addresses are checked: a bad block line or span fails naming the address and the page counts as command-checked', () => {
+    for (const [rel, address] of NEW) {
+      // The clean page: a README line in a block and the README span marked outside a block.
+      assert.deepEqual(lib(address, html(CLEAN), { facts: SPAN_FACTS }).failures, [], `${address}: a clean page has no failure`);
+      assert.equal(lib(address, html(CLEAN), { facts: SPAN_FACTS }).lines.at(-1), SUMMARY(1, 1, 1, 0), `${address}: counted as a command-checked page`);
+      // A block line the README does not hold, and a marked span it does not hold.
+      assert.deepEqual(lib(address, html(`${CLEAN}${pre('proofline frobnicate --now')}`), { facts: SPAN_FACTS }).failures, [blockLine(address, 'proofline frobnicate --now')], `${address}: a bad block line`);
+      assert.deepEqual(lib(address, html(`${CLEAN}<p><code data-command>proofline init --role implementer</code></p>`), { facts: SPAN_FACTS }).failures, [spanLine(address, 'proofline init --role implementer')], `${address}: a cut span`);
+      // The span written as a block line is not a README command line.
+      assert.deepEqual(lib(address, html(pre('proofline init --role implementer=codex')), { facts: SPAN_FACTS }).failures, [blockLine(address, 'proofline init --role implementer=codex')], `${address}: the span as a block line`);
+      // The same page through the command line tool on a fixture tree: the line is named with its address and the summary counts four command-checked pages.
+      const dir = site('site-clean', { [rel]: html(pre('proofline frobnicate --now')) });
+      const r = guard(dir);
+      assert.equal(r.status, 1, r.stdout);
+      assert.deepEqual(failuresOf(r), [blockLine(address, 'proofline frobnicate --now')], `${address}: only this page fails, with its line`);
+      assert.equal(r.lines.at(-1), SUMMARY(4, 4, 3, 1), `${address}: the page is counted`);
+      assert.deepEqual(lib(address, html('<p><code data-command>proofline frobnicate</code></p>'), { facts: SPAN_FACTS }).failures, [spanLine(address, 'proofline frobnicate')], `${address}: a bad span`);
+    }
+    // A page below the address is not one of the four pages: nothing is compared.
+    const below = Object.fromEntries(NEW.map(([rel]) => [rel.replace('/index.html', '/other/index.html'), html(`${pre('proofline frobnicate --now')}<p><code data-command>nothing</code></p>`)]));
+    const other = guard(site('site-clean', below));
+    assert.equal(other.status, 0, other.stdout);
+    assert.equal(other.lines.at(-1), SUMMARY(5, 5, 2, 0), 'the two pages below the addresses are site-written pages and no command-checked pages');
+    // All four addresses together are command-checked pages.
+    const all = checkGuards({ pages: GET_STARTED_PAGES.map((address) => ({ address, html: html(CLEAN) })), probesText: PROBES, loadFacts: () => SPAN_FACTS });
+    assert.deepEqual(all.failures, []);
+    assert.equal(all.lines.at(-1), SUMMARY(4, 4, 4, 0), 'four pages, four command-checked');
+  });
+
+  it('the facts are loaded for a new address alone and not for another page', () => {
+    for (const address of ['/claude-code-and-codex/', '/tr/claude-code-ve-codex/']) {
+      let loaded = 0;
+      checkGuards({ pages: [{ address, html: html('<p>x</p>') }], probesText: PROBES, loadFacts: () => { loaded += 1; return SPAN_FACTS; } });
+      assert.equal(loaded, 1, `${address}: the facts are loaded once`);
+    }
+    let loaded = 0;
+    checkGuards({ pages: [{ address: '/trust/', html: html(pre('proofline frobnicate')) }], probesText: PROBES, loadFacts: () => { loaded += 1; return SPAN_FACTS; } });
+    assert.equal(loaded, 0, 'another page loads no facts');
+  });
+});
+
 describe('page classes and install-time patterns (AC-5, AC-6, AC-7, AC-8)', () => {
   it('synced pages are not guarded and docs indexes are site-written', () => {
     const synced = ['/docs/guides/existing-project/', '/docs/concepts/workflow/', '/docs/proof/', '/docs/skills/alpha/', '/tr/docs/guides/baslangic/', '/tr/docs/proof/'];
@@ -236,7 +282,7 @@ describe('page classes and install-time patterns (AC-5, AC-6, AC-7, AC-8)', () =
     for (const a of synced) assert.equal(isSyncedPage(a), true, a);
     for (const a of written) assert.equal(isSyncedPage(a), false, a);
     assert.deepEqual(DOCS_INDEXES, ['/docs/', '/tr/docs/', '/docs/skills/']);
-    assert.deepEqual(GET_STARTED_PAGES, ['/get-started/', '/tr/baslarken/']);
+    assert.deepEqual(GET_STARTED_PAGES, ['/get-started/', '/tr/baslarken/', '/claude-code-and-codex/', '/tr/claude-code-ve-codex/']);
 
     const base = guard(site('site-mixed'));
     assert.equal(base.status, 0, base.stdout);
