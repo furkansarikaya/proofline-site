@@ -14,6 +14,7 @@
     "check:determinism": "node scripts/check-dist.mjs determinism",
     "check:links": "node scripts/check-dist.mjs links dist",
     "test:axe": "node --test tests/axe.mjs",
+    "test:browser": "node --test tests/browser/*.mjs",
     "check:workflows": "node scripts/check-workflows.mjs"
   },
   "dependencies": {

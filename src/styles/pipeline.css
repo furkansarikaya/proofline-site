@@ -1,0 +1,302 @@
+/* Pipeline diagram (TASK-018). Colours only through the tokens of tokens.css; no gradient, no radius, no shadow, no inline style.
+   Sizes follow docs/design/DESIGN-marketing.md (R-1 to R-4, R-7): labels 21 drawing units, 28 at 720px and below, hidden below 460px where the key line shows;
+   rails 26px, 12px at 820px and below, hatched by one svg path each; the 20 s loop only on screen where motion is allowed. The still frame (blocked slab at 03 REVIEW, finished slab at the exit) is the base style.
+   Distances along the belt are in steps of 52px right and 30px up; they match the geometry in src/components/marketing/PipelineDiagram.astro:
+   blocked slab 6 steps (in front of the third gate), finished slab 13.2 steps (right of the fifth gate), the gates 2.2 + 2.15 * k steps. */
+
+/* ---- frame: rail, drawing, rail, then the legend as the last row ---- */
+.pipeline {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 26px;
+  border: 1px solid var(--rule);
+  background: var(--frame);
+  color: var(--ink);
+}
+
+.pipeline-rail {
+  position: relative;
+}
+
+.pipeline > .pipeline-rail:first-child {
+  border-right: 1px solid var(--rule);
+}
+
+.pipeline > .pipeline-pad ~ .pipeline-rail {
+  border-left: 1px solid var(--rule);
+}
+
+.pipeline-rail-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* One path of 45 degree strokes per rail, taller and wider than any rail; the rail's svg clips it. */
+.pipeline-hatch {
+  fill: none;
+  stroke: var(--hatch);
+  stroke-width: 1;
+}
+
+.pipeline-pad {
+  min-width: 0;
+  padding: 20px 10px 8px;
+}
+
+.pipeline-drawing {
+  display: block;
+  width: min(100%, 760px);
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+@media (max-width: 820px) {
+  .pipeline {
+    grid-template-columns: 12px minmax(0, 1fr) 12px;
+  }
+
+  .pipeline-pad {
+    padding: 14px 4px 4px;
+  }
+}
+
+/* ---- the drawing: faces are the frame ground with an ink tint, lines are ink ---- */
+.pipeline-face {
+  fill: var(--frame);
+  stroke: var(--ink);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+}
+
+.pipeline-shade {
+  fill: var(--ink);
+  stroke: none;
+}
+
+.pipeline-shade.pipeline-left {
+  fill-opacity: 0.1;
+}
+
+.pipeline-shade.pipeline-right {
+  fill-opacity: 0.2;
+}
+
+.pipeline-belt .pipeline-top {
+  fill: var(--ink);
+  fill-opacity: 0.05;
+}
+
+.pipeline-dash {
+  fill: none;
+  stroke: var(--ink);
+  stroke-opacity: 0.5;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 6;
+}
+
+.pipeline-leader {
+  stroke: var(--ink);
+  stroke-opacity: 0.6;
+  stroke-width: 1.1;
+}
+
+/* A slab starts at the belt entry; --step moves it along the belt. */
+.pipeline-slab {
+  transform: translate(calc(var(--step) * 52px), calc(var(--step) * -30px));
+}
+
+.pipeline-slab-blocked {
+  --step: 6;
+}
+
+.pipeline-slab-finished {
+  --step: 13.2;
+}
+
+/* The two states are shapes with a fill: finished is the accent, blocked is the one use of the block colour (rule R-1). */
+.pipeline-state-finished .pipeline-top {
+  fill: var(--accent);
+}
+
+.pipeline-state-blocked .pipeline-top {
+  fill: var(--block);
+}
+
+.pipeline-mark {
+  fill: none;
+  stroke: var(--frame);
+  stroke-width: 3.2;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+/* Still frame: the blocked slab shows its cross, the finished slab its check mark; the blocked slab's own check mark only shows in the loop. */
+.pipeline-slab-blocked .pipeline-state-finished {
+  opacity: 0;
+}
+
+/* ---- labels ---- */
+.pipeline-label {
+  fill: var(--ink);
+  font: 500 21px/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+.pipeline-dim {
+  fill-opacity: 0.75;
+}
+
+.pipeline-drawing .pipeline-n {
+  fill-opacity: 0.6;
+}
+
+.pipeline-key {
+  display: none;
+  margin: 8px 4px 6px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .pipeline-label {
+    font-size: 28px;
+  }
+}
+
+/* Labels never go under 12px on screen (R-7): where they would, they are not displayed and the key line says what the cross and the check mark mean. */
+@media (max-width: 459px) {
+  .pipeline-labels,
+  .pipeline-blocked-label {
+    display: none;
+  }
+
+  .pipeline-key {
+    display: block;
+  }
+}
+
+/* ---- legend: the frame's last row ---- */
+.pipeline-legend {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+  list-style: none;
+}
+
+.pipeline-legend li {
+  padding: 14px 14px 16px;
+  border-left: 1px solid var(--rule);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.pipeline-legend li:first-child {
+  border-left: 0;
+}
+
+.pipeline-legend-name {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font: 500 14px/1.2 "JetBrains Mono", ui-monospace, monospace;
+}
+
+.pipeline-legend .pipeline-n,
+.pipeline-legend-text {
+  color: var(--muted);
+}
+
+.pipeline-legend-text {
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .pipeline-legend {
+    grid-template-columns: 1fr;
+  }
+
+  .pipeline-legend li {
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .pipeline-legend li:first-child {
+    border-top: 0;
+  }
+}
+
+/* ---- the 20 s loop: CSS only, only on screen and only where motion is allowed; under reduce and under print no element has an animation name and the still frame stays ---- */
+@media screen and (prefers-reduced-motion: no-preference) {
+  .pipeline-slab-finished {
+    animation: pipeline-run-finished 20s linear infinite;
+  }
+
+  .pipeline-slab-finished .pipeline-state-finished {
+    animation: pipeline-show-finished-a 20s linear infinite;
+  }
+
+  .pipeline-slab-blocked {
+    animation: pipeline-run-blocked 20s linear infinite;
+  }
+
+  .pipeline-slab-blocked .pipeline-state-blocked {
+    animation: pipeline-show-blocked 20s linear infinite;
+  }
+
+  .pipeline-slab-blocked .pipeline-state-finished {
+    animation: pipeline-show-finished-b 20s linear infinite;
+  }
+
+  .pipeline-blocked-label {
+    animation: pipeline-show-label 20s linear infinite;
+  }
+}
+
+/* Slab A runs the belt to the exit, turns accent after 05 VERIFY, then fades out for the next loop. */
+@keyframes pipeline-run-finished {
+  0% { transform: translate(0, 0); opacity: 0; }
+  1% { opacity: 1; }
+  45% { transform: translate(686.4px, -396px); opacity: 1; }
+  47% { transform: translate(686.4px, -396px); opacity: 0; }
+  100% { transform: translate(686.4px, -396px); opacity: 0; }
+}
+
+@keyframes pipeline-show-finished-a {
+  0%, 38% { opacity: 0; }
+  42%, 100% { opacity: 1; }
+}
+
+/* Slab B enters, stops at 03 REVIEW with the cross and BLOCKED, backs up for the fix round, runs again and leaves as CODE_DONE. */
+@keyframes pipeline-run-blocked {
+  0%, 9% { transform: translate(0, 0); opacity: 0; }
+  10% { transform: translate(0, 0); opacity: 1; }
+  35%, 45% { transform: translate(312px, -180px); }
+  55%, 60% { transform: translate(226.2px, -130.5px); }
+  99% { transform: translate(686.4px, -396px); opacity: 1; }
+  100% { transform: translate(686.4px, -396px); opacity: 0; }
+}
+
+@keyframes pipeline-show-blocked {
+  0%, 35% { opacity: 0; }
+  36%, 46% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes pipeline-show-finished-b {
+  0%, 88% { opacity: 0; }
+  94%, 100% { opacity: 1; }
+}
+
+@keyframes pipeline-show-label {
+  0%, 35% { opacity: 0; }
+  37%, 50% { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
