@@ -1,0 +1,85 @@
+/* Get-started page (TASK-021). Imported by src/layouts/Base.astro after home.css, so the build keeps one stylesheet. Class prefix gs-.
+   Colours only through the tokens of tokens.css and sizes through the type steps of base.css; no gradient, no radius, no shadow, no url(), no inline style, no animation
+   or transition. The reading column and the command frame follow the home page: one column from column 4, six columns wide, a 1px --rule frame on the surface ground.
+   At 820px and below the column takes the whole width. Long command lines wrap at every width (the column is narrow from 821px too), so the page never scrolls sideways. */
+
+.gs {
+  padding-top: 72px;
+  padding-bottom: 80px;
+}
+
+.gs-col {
+  grid-column: 4 / span 6;
+  min-width: 0;
+}
+
+.gs-h1 {
+  margin: 0 0 20px;
+  color: var(--ink);
+}
+
+.gs-lead {
+  max-width: 60ch;
+  margin: 0 0 56px;
+  color: var(--muted);
+  font-size: var(--step-lead);
+}
+
+.gs-part {
+  margin: 0 0 48px;
+}
+
+.gs-h2 {
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+
+.gs-p {
+  max-width: 75ch;
+  margin: 0 0 14px;
+  font-size: var(--step-body);
+}
+
+/* A command block: the surface ground and a 1px --rule outline, no radius, no button (the same frame as the steps of the home page). Lines keep their breaks and wrap at every width. */
+.gs-call {
+  margin: 0 0 14px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  line-height: 1.75;
+}
+
+/* The skills-only span sits in running text: the monospace face comes from base.css, no frame; a long span wraps. */
+.gs-span {
+  overflow-wrap: anywhere;
+}
+
+.gs-note {
+  color: var(--muted);
+  font-size: var(--step-small);
+}
+
+/* The measured-scope sentence: a 2px accent rule on its start edge, no box and no fill. The accent is the rule only, never the red of the blocked slab. */
+.gs-measured {
+  max-width: 75ch;
+  margin: 0;
+  padding-inline-start: 16px;
+  border-inline-start: 2px solid var(--accent);
+  font-size: var(--step-body);
+}
+
+/* ---- phone ---- */
+@media (max-width: 820px) {
+  .gs {
+    padding-top: 36px;
+    padding-bottom: 56px;
+  }
+
+  .gs-col {
+    grid-column: 1 / -1;
+  }
+}

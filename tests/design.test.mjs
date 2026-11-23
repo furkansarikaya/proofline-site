@@ -529,6 +529,21 @@ describe('built site', () => {
     return $.html();
   };
 
+  // The README clone line of the Codex part (TASK-021 AC-2) is a command, not a resource: on the two get-started pages only, a line of a command block (a `pre` with
+  // lang="en" and translate="no") that equals the README line exactly is removed before the scan. The same text anywhere else (a paragraph, an inline code, a `pre` that
+  // is not a command block, another page), another host or any other line of the block stays in the scan.
+  const CLONE_LINE = 'git clone https://github.com/furkansarikaya/proofline';
+  const CLONE_PAGES = new Set(['dist/get-started/index.html', 'dist/tr/baslarken/index.html']);
+  const withoutCloneLine = (name, html) => {
+    if (!CLONE_PAGES.has(name)) return html;
+    const $ = load(html);
+    $('pre[lang="en"][translate="no"]').each((_, pre) => {
+      const lines = $(pre).text().split('\n');
+      if (lines.includes(CLONE_LINE)) $(pre).text(lines.filter((line) => line !== CLONE_LINE).join('\n'));
+    });
+    return $.html();
+  };
+
   it('styles and dist hold no external host, no import and no foreign url', { timeout: 120000 }, () => {
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
     const probe = withoutHeadMetadata([
@@ -570,6 +585,35 @@ describe('built site', () => {
     for (const kept of ['https://cdn.example/a.css', 'http://img.example/b.png', 'https://cdn.example/c.css', 'https://cdn.example/d']) {
       assert.ok(probe.includes(kept), `any other address stays in the scan: ${kept}`);
     }
+    // The clone-line allowance, on probe pages: only the exact README line inside a command block of a get-started page leaves the scan.
+    const INSTALL_LINE = 'node proofline/adapters/codex/install.mjs';
+    const block = (text, attributes = ' lang="en" translate="no"') => `<html><head></head><body><pre class="gs-call"${attributes}><code>${text}</code></pre></body></html>`;
+    for (const name of CLONE_PAGES) {
+      const skipped = withoutCloneLine(name, block(`${CLONE_LINE}\n${INSTALL_LINE}`));
+      assert.doesNotMatch(skipped, /https?:\/\//, `${name}: the clone line inside a command block is skipped`);
+      assert.ok(skipped.includes(INSTALL_LINE), `${name}: the other lines of the block stay in the scan`);
+    }
+    const cloneKept = [
+      ['dist/get-started/index.html', `<html><body><p>${CLONE_LINE}</p></body></html>`, 'the clone line in a paragraph'],
+      ['dist/get-started/index.html', `<html><body><p><code lang="en" translate="no">${CLONE_LINE}</code></p></body></html>`, 'the clone line in an inline code'],
+      ['dist/get-started/index.html', block(CLONE_LINE, ''), 'the clone line in a pre without lang and translate'],
+      ['dist/get-started/index.html', block(CLONE_LINE, ' lang="en"'), 'the clone line in a pre without translate="no"'],
+      ['dist/tr/baslarken/index.html', block(CLONE_LINE, ' translate="no"'), 'the clone line in a pre without lang="en"'],
+      ['dist/get-started/index.html', block('git clone https://gitlab.com/furkansarikaya/proofline'), 'the clone line with another host'],
+      ['dist/get-started/index.html', block('git clone https://github.com/furkansarikaya/other'), 'the clone line of another repository'],
+      ['dist/get-started/index.html', block(`${CLONE_LINE} extra`), 'the clone line with more text on the line'],
+      ['dist/tr/baslarken/index.html', block(`${CLONE_LINE}\ncurl https://example.com/install.sh`), 'another address in the same command block'],
+      ['dist/get-started/index.html', block(CLONE_LINE).replace('</body>', '<a href="https://example.com/">x</a></body>'), 'a link to another host on the same page'],
+      ['dist/index.html', block(CLONE_LINE), 'the clone line in a command block of another page'],
+      ['dist/404.html', block(CLONE_LINE), 'the clone line in a command block of the not-found page'],
+      ['dist/get-started/other/index.html', block(CLONE_LINE), 'the clone line in a command block below a get-started address'],
+    ];
+    for (const [name, html, what] of cloneKept) assert.match(withoutCloneLine(name, html), /https?:\/\//, `${what} stays in the scan`);
+    for (const name of CLONE_PAGES) {
+      const rel = name.slice('dist/'.length);
+      const $ = load(existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '');
+      assert.ok($('pre[lang="en"][translate="no"]').toArray().some((pre) => $(pre).text().split('\n').includes(CLONE_LINE)), `${name} holds the clone line the scan skips in a command block`);
+    }
     for (const rel of ['index.html', 'tr/index.html']) {
       const raw = existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '';
       for (const needed of [
@@ -588,7 +632,7 @@ describe('built site', () => {
     assert.ok(files.some(([f]) => f.endsWith('.css') && f.startsWith('dist/')), 'the build emitted a stylesheet');
     assert.ok(files.length >= 7, 'the scan read the sources and the built files');
     for (const [name, raw] of files) {
-      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutRepositoryLinks(withoutHeadMetadata(raw)) : raw;
+      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutCloneLine(name, withoutRepositoryLinks(withoutHeadMetadata(raw))) : raw;
       assert.doesNotMatch(text, /https?:\/\//i, `${name} names no host`);
       assert.doesNotMatch(text, /@import/i, `${name} has no @import`);
       for (const m of text.matchAll(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi)) {
@@ -609,7 +653,9 @@ describe('built site', () => {
     const homeAt = layout.search(/import\s+['"]\.\.\/styles\/home\.css['"]/);
     assert.ok(pipelineAt > componentsAt, 'Base.astro imports ../styles/pipeline.css after components.css');
     assert.ok(homeAt > pipelineAt, 'Base.astro imports ../styles/home.css after pipeline.css');
-    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits']) {
+    const getStartedAt = layout.search(/import\s+['"]\.\.\/styles\/get-started\.css['"]/);
+    assert.ok(getStartedAt > homeAt, 'Base.astro imports ../styles/get-started.css after home.css');
+    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits', 'GetStarted']) {
       assert.ok(read(`src/components/marketing/${name}.astro`) !== '', `${name}.astro exists`);
       assert.doesNotMatch(read(`src/components/marketing/${name}.astro`), /import\s+['"][^'"]*\.css['"]/, `${name}.astro imports no stylesheet, Base.astro bundles the one`);
     }
@@ -617,7 +663,7 @@ describe('built site', () => {
     assert.equal(config.build.inlineStylesheets, 'never', 'astro.config.mjs sets build.inlineStylesheets to never');
     assert.equal(config.build.format, 'directory', 'the existing build format is kept');
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
-    for (const rel of ['index.html', 'tr/index.html']) {
+    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html']) {
       assert.ok(existsSync(join(outDir, rel)), `${rel} is built`);
       const $ = load(readFileSync(join(outDir, rel), 'utf8'));
       const links = $('link[rel~=stylesheet]').toArray();

@@ -356,14 +356,14 @@ describe('variant builds', () => {
   it('closed build: noindex on every page, closed robots.txt, no sitemap and the blocked log line', () => {
     const b = build('closed');
     const pages = htmlOf(b);
-    assert.deepEqual(pages, ['404.html', 'index.html', 'tr/index.html']);
+    assert.deepEqual(pages, ['404.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/index.html']);
     for (const rel of pages) {
       const $ = pageOf(b, rel);
       assert.equal($('meta[name="robots"]').length, 1, `${rel} holds one robots meta`);
       assert.equal($('meta[name="robots"]').attr('content'), 'noindex, nofollow');
       assert.deepEqual(headSignature($), ['meta[charset]', 'meta[name=viewport]', 'meta[name=robots]', 'title'], `${rel} head signature`);
       // The home pages are the real ones: the pinned documents were fetched first and the pages were built from them.
-      if (rel !== '404.html') assert.equal($('main h1.home-h1').length, 1, `${rel} holds the home headline`);
+      if (rel === 'index.html' || rel === 'tr/index.html') assert.equal($('main h1.home-h1').length, 1, `${rel} holds the home headline`);
     }
     assert.equal(read(b, 'robots.txt'), CLOSED_ROBOTS);
     assert.equal(existsSync(join(b.outDir, 'sitemap.xml')), false, 'no sitemap is written');
@@ -375,7 +375,7 @@ describe('variant builds', () => {
   it('production build: no robots meta, open robots.txt with the sitemap address, sitemap present and the allowed log line', () => {
     const b = build('production');
     const pages = htmlOf(b);
-    assert.deepEqual(pages, ['404.html', 'index.html', 'tr/index.html']);
+    assert.deepEqual(pages, ['404.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/index.html']);
     for (const rel of pages) {
       const $ = pageOf(b, rel);
       assert.equal($('meta[name="robots"]').length, 0, `${rel} holds no robots meta`);
@@ -449,10 +449,12 @@ describe('variant builds', () => {
       }
       assert.deepEqual(byAddress.get(address), head, `${rel}: the sitemap alternates equal the head alternates`);
     }
-    for (const address of [`${ORIGIN}/`, `${ORIGIN}/tr/`]) {
+    for (const address of [`${ORIGIN}/`, `${ORIGIN}/tr/`, `${ORIGIN}/get-started/`, `${ORIGIN}/tr/baslarken/`]) {
       assert.deepEqual(byAddress.get(address).map((l) => l.hreflang), ['en', 'tr', 'x-default'], `${address} lists en, tr and x-default`);
     }
     assert.deepEqual(byAddress.get(`${ORIGIN}/`), byAddress.get(`${ORIGIN}/tr/`), 'the pair lists the same three');
+    assert.deepEqual(byAddress.get(`${ORIGIN}/get-started/`), byAddress.get(`${ORIGIN}/tr/baslarken/`), 'the get-started pair lists the same three');
+    assert.deepEqual(byAddress.get(`${ORIGIN}/get-started/`).map((l) => l.href), [`${ORIGIN}/get-started/`, `${ORIGIN}/tr/baslarken/`, `${ORIGIN}/get-started/`], 'the get-started pair points at its two pages');
     // a page with no pair has none, in the index and in a sitemap entry built for it
     assert.deepEqual(alternates('/solo/'), []);
     assert.equal(sitemapXml(['/solo/']).includes('xhtml:link'), false);

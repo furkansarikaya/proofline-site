@@ -1,0 +1,51 @@
+---
+// The get-started page body (TASK-021): the H1 and lead, three parts (Claude Code, Codex, the first task) with plain command blocks, the skills-only span, and the sentence
+// that says what the "a few seconds" was measured on. Every command line is checked against the README commands of the pin before the page renders (src/lib/get-started.ts),
+// so a line the README does not hold fails the build naming the page and the line. The blocks are the plain framed blocks of the home steps: no id, no button, no live
+// region (only the first-screen command of the home page is copyable). No CSS import: Base.astro bundles src/styles/get-started.css.
+import type { Lang } from '../../lib/meta.ts';
+import { CLAUDE_LINES, CODEX_LINES, FIRST_LINES, GET_STARTED_PAGE, SKILLS_SPAN, TASK_COMMANDS, pinnedLines, pinnedSpan, readGetStartedContent } from '../../lib/get-started.ts';
+import type { StartFacts } from '../../lib/get-started.ts';
+
+interface Props {
+  lang: Lang;
+  /** The frontmatter of the language's get-started content file. */
+  content: unknown;
+  facts: StartFacts;
+}
+
+const { lang, content: raw, facts } = Astro.props;
+const content = readGetStartedContent(raw);
+const page = GET_STARTED_PAGE[lang];
+const claude = pinnedLines(page, facts.readme_commands, CLAUDE_LINES);
+const codex = pinnedLines(page, facts.readme_commands, CODEX_LINES);
+const first = pinnedLines(page, facts.readme_commands, [...FIRST_LINES, ...TASK_COMMANDS]);
+const span = pinnedSpan(page, facts.readme_inline_spans, SKILLS_SPAN);
+---
+
+<div class="wrap gs">
+  <div class="grid">
+    <div class="gs-col">
+      <h1 class="gs-h1">{content.title}</h1>
+      <p class="gs-lead">{content.lead}</p>
+      <section class="gs-part">
+        <h2 class="gs-h2">Claude Code</h2>
+        <p class="gs-p">{content.claude.intro}</p>
+        <pre class="gs-call" lang="en" translate="no"><code>{claude.join('\n')}</code></pre>
+      </section>
+      <section class="gs-part">
+        <h2 class="gs-h2">Codex</h2>
+        <p class="gs-p">{content.codex.intro}</p>
+        <pre class="gs-call" lang="en" translate="no"><code>{codex.join('\n')}</code></pre>
+      </section>
+      <section class="gs-part">
+        <h2 class="gs-h2">{content.first.heading}</h2>
+        <p class="gs-p">{content.first.intro}</p>
+        <pre class="gs-call" lang="en" translate="no"><code>{first.join('\n')}</code></pre>
+        <p class="gs-p gs-skills">{content.first.skills.before}<code class="gs-span" data-command lang="en" translate="no">{span}</code></p>
+        <p class="gs-p gs-note">{content.first.skills.after}</p>
+      </section>
+      <p class="gs-measured">{content.measured}</p>
+    </div>
+  </div>
+</div>

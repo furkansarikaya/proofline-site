@@ -10,7 +10,7 @@ import type { Lang } from './meta.ts';
 export interface Pair { readonly en: string; readonly tr: string }
 
 /** One entry per translated page pair, addresses with the trailing slash. Every page task appends its own entry; the home pair is the first. */
-export const PAIRS: readonly Pair[] = [{ en: '/', tr: '/tr/' }];
+export const PAIRS: readonly Pair[] = [{ en: '/', tr: '/tr/' }, { en: '/get-started/', tr: '/tr/baslarken/' }];
 
 /** Where site-written content files live: English `<root>/en/<name>.md`, Turkish `<root>/tr/<name>.md` (the stamp script reads these). */
 export const CONTENT_ROOT = 'src/content/pages';

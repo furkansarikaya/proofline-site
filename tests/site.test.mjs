@@ -16,7 +16,11 @@ import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
-const PAGES = ['index.html', 'tr/index.html', '404.html'];
+const PAGES = ['index.html', 'tr/index.html', '404.html', 'get-started/index.html', 'tr/baslarken/index.html'];
+// The script rule (TASK-005, TASK-021): the two home pages hold the JSON-LD block and the controls script, the two get-started pages hold the controls script only
+// (the header theme button needs it), named by address and never by a pattern; every other page holds no script.
+const HOMES = { 'index.html': 'en', 'tr/index.html': 'tr' };
+const CONTROLS_ONLY = new Set(['get-started/index.html', 'tr/baslarken/index.html']);
 const ORIGIN = 'https://proofline.technology';
 const BRAND = {
   en: 'proofline: a deterministic engineering team for Claude Code and Codex',
@@ -221,6 +225,36 @@ function closedEnv() {
   return env;
 }
 
+/**
+ * The script rule of one built page; throws an assertion error naming the page. A home page holds two scripts, the JSON-LD block (WebSite, the name and phrase of
+ * its language) and the controls script; a page of CONTROLS_ONLY holds the controls script and nothing else; every other page holds no script. The controls script
+ * is `head > script[src="/assets/controls.js"]`, without async, defer, type, nomodule, integrity or crossorigin and without a body.
+ */
+function assertScripts(rel, $) {
+  if (!(rel in HOMES) && !CONTROLS_ONLY.has(rel)) {
+    assert.equal($('script').length, 0, `${rel} holds no script element`);
+    return;
+  }
+  if (CONTROLS_ONLY.has(rel)) {
+    assert.equal($('script[type="application/ld+json"]').length, 0, `${rel} holds no application/ld+json block`);
+    assert.equal($('script').length, 1, `${rel} holds the controls script only`);
+  } else {
+    assert.equal($('script').length, 2, `${rel} holds the JSON-LD block and the controls script`);
+    assert.equal($('script[type="application/ld+json"]').length, 1, `${rel} holds one application/ld+json block`);
+    const data = JSON.parse($('script[type="application/ld+json"]').text());
+    assert.equal(data['@type'], 'WebSite');
+    assert.equal(data.name, BRAND[HOMES[rel]]);
+  }
+  const controls = $('script[src]');
+  assert.equal(controls.length, 1, `${rel} holds exactly one script with a source`);
+  assert.equal($('head > script[src="/assets/controls.js"]').length, 1, `${rel}: the controls script is in the head`);
+  for (const attribute of ['async', 'defer', 'type', 'nomodule', 'integrity', 'crossorigin']) {
+    assert.equal(controls.attr(attribute), undefined, `${rel}: the controls script has no ${attribute} attribute`);
+  }
+  assert.equal(controls.text(), '', `${rel}: the controls script has no body`);
+  for (const script of $('script').toArray()) assert.equal(script.parent.tagName, 'head', `${rel}: every script is a child of head`);
+}
+
 describe('built site', () => {
   let build = { status: -1, stderr: '', output: '' };
   before(() => {
@@ -229,10 +263,10 @@ describe('built site', () => {
     build = { status: r.status, stderr: r.stderr ?? '', output: `${r.stdout ?? ''}${r.stderr ?? ''}` };
   }, { timeout: 120000 });
 
-  it('build emits exactly index.html, tr/index.html and 404.html', () => {
+  it('build emits exactly index.html, tr/index.html and 404.html plus get-started/index.html and tr/baslarken/index.html', () => {
     assert.equal(build.status, 0, `npm run build must exit 0: ${build.stderr.slice(-400)}`);
     const html = walk(dist).filter((f) => f.endsWith('.html'));
-    assert.deepEqual(html, ['404.html', 'index.html', 'tr/index.html']);
+    assert.deepEqual(html, ['404.html', 'get-started/index.html', 'index.html', 'tr/baslarken/index.html', 'tr/index.html']);
   });
 
   it('language roots link to each other and the 404 page holds both language blocks', () => {
@@ -262,30 +296,48 @@ describe('built site', () => {
     assert.deepEqual(signatures[0], ['meta[charset]', 'meta[name=viewport]', 'meta[name=robots]', 'title']);
     assert.deepEqual(signatures[1], signatures[0]);
     assert.deepEqual(signatures[2], signatures[0]);
+    assert.deepEqual(signatures[3], signatures[0]);
+    assert.deepEqual(signatures[4], signatures[0]);
   });
 
-  it('home pages hold the JSON-LD block and the one controls script; other pages hold no script', () => {
-    const homes = { 'index.html': 'en', 'tr/index.html': 'tr' };
-    for (const rel of walk(dist).filter((f) => f.endsWith('.html'))) {
-      const $ = page(rel);
-      if (!(rel in homes)) {
-        assert.equal($('script').length, 0, `${rel} holds no script element`);
-        continue;
-      }
-      assert.equal($('script').length, 2, `${rel} holds the JSON-LD block and the controls script`);
-      assert.equal($('script[type="application/ld+json"]').length, 1, `${rel} holds one application/ld+json block`);
-      const data = JSON.parse($('script[type="application/ld+json"]').text());
-      assert.equal(data['@type'], 'WebSite');
-      assert.equal(data.name, BRAND[homes[rel]]);
-      const controls = $('script[src]');
-      assert.equal(controls.length, 1, `${rel} holds exactly one script with a source`);
-      assert.equal($('head > script[src="/assets/controls.js"]').length, 1, `${rel}: the controls script is in the head`);
-      for (const attribute of ['async', 'defer', 'type', 'nomodule', 'integrity', 'crossorigin']) {
-        assert.equal(controls.attr(attribute), undefined, `${rel}: the controls script has no ${attribute} attribute`);
-      }
-      assert.equal(controls.text(), '', `${rel}: the controls script has no body`);
-      for (const script of $('script').toArray()) assert.equal(script.parent.tagName, 'head', `${rel}: every script is a child of head`);
+  it('home pages hold the JSON-LD block and the one controls script, the two get-started pages only the controls script and other pages no script', () => {
+    const built = walk(dist).filter((f) => f.endsWith('.html'));
+    for (const rel of [...Object.keys(HOMES), ...CONTROLS_ONLY]) assert.ok(built.includes(rel), `${rel} is built`);
+    for (const rel of built) assertScripts(rel, page(rel));
+    // The rule itself, on probe pages: each broken rule fails naming the page, the two get-started addresses pass with the controls script only.
+    const head = (inner, body = '') => load(`<html><head><meta charset="utf-8">${inner}</head><body><p>x</p>${body}</body></html>`);
+    const CONTROLS = '<script src="/assets/controls.js"></script>';
+    const ld = (lang) => `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebSite', name: BRAND[lang] })}</script>`;
+    for (const rel of CONTROLS_ONLY) assert.doesNotThrow(() => assertScripts(rel, head(CONTROLS)), `${rel} passes with the controls script only`);
+    for (const [rel, lang] of Object.entries(HOMES)) assert.doesNotThrow(() => assertScripts(rel, head(`${ld(lang)}${CONTROLS}`)), `${rel} passes with the JSON-LD block and the controls script`);
+    assert.doesNotThrow(() => assertScripts('404.html', head('')), '404.html passes with no script');
+    const broken = [
+      ['404.html', head(CONTROLS), /404\.html holds no script element/],
+      ['extra/index.html', head(CONTROLS), /extra\/index\.html holds no script element/],
+      ['get-started/other/index.html', head(CONTROLS), /get-started\/other\/index\.html holds no script element/],
+      ['tr/baslarken/x.html', head(CONTROLS), /tr\/baslarken\/x\.html holds no script element/],
+      ['get-started/index.html', head(''), /get-started\/index\.html holds the controls script only/],
+      ['get-started/index.html', head(`${CONTROLS}<script>void 0</script>`), /get-started\/index\.html holds the controls script only/],
+      ['get-started/index.html', head(`${ld('en')}${CONTROLS}`), /get-started\/index\.html holds no application\/ld\+json block/],
+      ['get-started/index.html', head(ld('en')), /get-started\/index\.html holds no application\/ld\+json block/],
+      ['tr/baslarken/index.html', head('<script src="/assets/other.js"></script>'), /tr\/baslarken\/index\.html: the controls script is in the head/],
+      ['tr/baslarken/index.html', head('', CONTROLS), /tr\/baslarken\/index\.html: the controls script is in the head/],
+      ['tr/baslarken/index.html', head('<script src="/assets/controls.js">void 0</script>'), /tr\/baslarken\/index\.html: the controls script has no body/],
+      ['tr/baslarken/index.html', head('<script>void 0</script>'), /tr\/baslarken\/index\.html holds exactly one script with a source/],
+      ['index.html', head(CONTROLS), /index\.html holds the JSON-LD block and the controls script/],
+      ['index.html', head(`${CONTROLS}${CONTROLS}`), /index\.html holds one application\/ld\+json block/],
+      ['index.html', head(`${ld('en')}<script>void 0</script>`), /index\.html holds exactly one script with a source/],
+      ['tr/index.html', head(`${ld('en')}${CONTROLS}`), /Expected values to be strictly equal/],
+      ['index.html', head(`<script type="application/ld+json">{"@type":"Thing","name":"${BRAND.en}"}</script>${CONTROLS}`), /Expected values to be strictly equal/],
+      ['index.html', head(ld('en'), CONTROLS), /index\.html: the controls script is in the head/],
+      ['index.html', head(CONTROLS, ld('en')), /index\.html: every script is a child of head/],
+    ];
+    for (const attribute of ['async', 'defer', 'type="module"', 'nomodule', 'integrity="sha256-x"', 'crossorigin']) {
+      const name = attribute.split('=')[0];
+      broken.push(['tr/baslarken/index.html', head(`<script src="/assets/controls.js" ${attribute}></script>`), new RegExp(`tr/baslarken/index\\.html: the controls script has no ${name} attribute`)]);
+      broken.push(['index.html', head(`${ld('en')}<script src="/assets/controls.js" ${attribute}></script>`), new RegExp(`\\sindex\\.html: the controls script has no ${name} attribute`)]);
     }
+    for (const [rel, $, message] of broken) assert.throws(() => assertScripts(rel, $), message, `the probe on ${rel} fails with ${message}`);
   });
 
   it('controls script file is built, at most 2048 bytes and equal to the source', () => {
@@ -298,7 +350,7 @@ describe('built site', () => {
   });
 
   it('every page head carries description and og tags', () => {
-    const langs = { 'index.html': 'en', 'tr/index.html': 'tr', '404.html': 'en' };
+    const langs = { 'index.html': 'en', 'tr/index.html': 'tr', '404.html': 'en', 'get-started/index.html': 'en', 'tr/baslarken/index.html': 'tr' };
     for (const rel of PAGES) {
       const $ = page(rel);
       assert.ok($, `${rel} is built`);
@@ -343,7 +395,7 @@ describe('built site', () => {
 
   it('pages without a pair hold no hreflang and every html lang matches its address', () => {
     assert.equal(page('404.html')('link[hreflang]').length, 0, '404.html holds 0 hreflang tags');
-    for (const rel of ['index.html', 'tr/index.html']) assert.equal(page(rel)('link[hreflang]').length, 3, `${rel} is paired, so it holds the three tags`);
+    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html']) assert.equal(page(rel)('link[hreflang]').length, 3, `${rel} is paired, so it holds the three tags`);
     const files = walk(dist).filter((f) => f.endsWith('.html'));
     assert.ok(files.length >= 3);
     for (const rel of files) {
