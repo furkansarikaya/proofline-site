@@ -68,10 +68,13 @@ Every text pair is at least 4.5. The accent is used as a fill or a ring only whe
 ## Components (shared)
 | Component | Path | States handled |
 |---|---|---|
-| Header with menu and three controls | planned `src/components/marketing/Header.astro` | hover, focus-visible, mobile wrap |
-| GitHub icon link, theme toggle, language link | planned, same file | see "Header controls" |
-| Copyable command block | planned | default, copied (announced politely) |
-| Icons: `github.svg`, `sun.svg`, `moon.svg` | planned `src/assets/icons/` | `currentColor`, readable in both themes |
+| Header with menu and three controls | `src/components/marketing/Header.astro` | hover, focus-visible, mobile wrap, current page (`aria-current="page"`, 2px `--ink` underline) |
+| GitHub icon link, theme toggle, language link | `src/components/marketing/Header.astro` (same file) | see "Header controls" |
+| One-line footer | `src/components/marketing/Footer.astro` | wraps on a phone, links at least 44 high up to 820px |
+| Copyable command block | `src/components/marketing/CommandBlock.astro` | default, copied (announced politely), copy refused (command selected, the message is also shown visibly under the command and announced politely) |
+| Icons: `github.svg`, `sun.svg`, `moon.svg` | `src/assets/icons/` | `currentColor`, readable in both themes |
+| Controls script | `public/assets/controls.js` (at most 2048 bytes) | theme key `theme`, copy button, hidden controls without the script |
+| Marketing component styles | `src/styles/components.css` (imported in `Base.astro` after tokens.css and base.css) | one bundled stylesheet |
 
 ## Header controls (rules)
 These are rules, not suggestions; a page that breaks one fails review.

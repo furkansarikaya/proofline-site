@@ -1,0 +1,22 @@
+---
+// The one-paragraph footer (TASK-005, ADR 0006): what the site does not do, who hosts it, the licence at the pinned commit and the site repository.
+// The wording is DESIGN-marketing.md "Footer"; the addresses come from src/lib/nav.ts.
+import { licenseHref, pinnedCommit, SITE_REPO_URL } from '../../lib/nav.ts';
+import type { Lang } from '../../lib/meta.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const license = licenseHref(pinnedCommit());
+
+const TEXT = {
+  en: { before: 'No cookies and no analytics scripts. The host keeps ordinary request logs. MIT licensed (', built: 'Built with proofline' },
+  tr: { before: 'Çerez ve analitik betiği yok. Barındırıcı olağan istek günlüklerini tutar. MIT lisanslı (', built: 'proofline ile yapıldı' },
+}[lang];
+---
+
+<footer class="wrap">
+  <p>{TEXT.before}<a href={license}>LICENSE</a>). <a href={SITE_REPO_URL}>{TEXT.built}</a>.</p>
+</footer>

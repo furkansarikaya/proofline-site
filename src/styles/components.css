@@ -1,0 +1,279 @@
+/* Component styles (TASK-005): header, footer and the copyable command block. Imported by src/layouts/Base.astro after tokens.css and base.css, so the build keeps
+   one stylesheet. Colours only through the tokens of tokens.css; no gradient, no radius, no shadow, no url() and no inline style. Values follow docs/design/DESIGN.md
+   "Header controls (rules)" and DESIGN-marketing.md "Footer". The focus ring (2px --accent, 3px offset) comes from base.css for every a and button. */
+
+/* Text for screen readers only (the polite live region of the command block). */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- header: one row from 821px; brand, menu, tools ---- */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: 68px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 15px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  font-family: "Stack Sans Headline", "Stack Sans Text", system-ui, sans-serif;
+  font-size: 19px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.bar nav {
+  margin-left: auto;
+}
+
+.bar nav ul {
+  display: flex;
+  gap: var(--nav-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.bar nav a:hover {
+  text-decoration: underline;
+}
+
+/* The current page: a 2px underline in --ink (not by colour alone); the hover underline stays 1px. */
+.bar nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The three header controls: 44 by 44 at least, a 1px hairline, square corners. */
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tool:hover {
+  border-color: var(--ink);
+}
+
+.tool svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+#b-gh {
+  padding: 0;
+}
+
+/* The theme button: a sun cell and a moon cell, 88 by 44. The cell of the current theme is filled with --ink, so the state is not colour alone. */
+.theme {
+  gap: 2px;
+  padding: 3px;
+  min-width: 88px;
+}
+
+.theme .cell {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 36px;
+  color: var(--muted);
+}
+
+.theme .cell-sun {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+:root[data-theme="dark"] .theme .cell-sun {
+  background: none;
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .theme .cell-moon {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* No saved choice: the filled cell follows the system setting. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .theme .cell-sun {
+    background: none;
+    color: var(--muted);
+  }
+
+  :root:not([data-theme]) .theme .cell-moon {
+    background: var(--ink);
+    color: var(--bg);
+  }
+}
+
+/* Script-only controls stay hidden until /assets/controls.js adds the js class to html. */
+.theme,
+.copy {
+  display: none;
+}
+
+html.js .theme {
+  display: inline-flex;
+}
+
+html.js .copy {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---- footer: one paragraph, the quietest text of the page ---- */
+footer p {
+  margin: 0;
+  padding: 20px 0 34px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: var(--step-small);
+}
+
+footer a {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* ---- command block: the one framed element ---- */
+.install {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.install-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 0 0 14px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.copy {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.copy:hover {
+  border-left-color: var(--ink);
+}
+
+/* The copied state: a check mark after the word, for under two seconds; the accessible name does not change. */
+.copy.done::after {
+  content: " \2713";
+}
+
+.cmd {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* The refused state: the controls script swaps the live region from .sr to .msg, so the same text a screen reader gets is also seen next to the command.
+   The element stays in the page and keeps role="status"; it is not a second copy. Only tokens, no --block colour. */
+.msg {
+  display: block;
+  padding: 10px 14px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---- phone: brand and tools on row 1, the menu on row 2 ---- */
+@media (max-width: 820px) {
+  .bar {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 12px 0;
+  }
+
+  .bar nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    font-size: 14.5px;
+  }
+
+  .bar nav ul {
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+
+  .tools {
+    margin-left: auto;
+  }
+
+  footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 720px) {
+  .cmd {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
