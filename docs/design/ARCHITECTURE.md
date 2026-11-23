@@ -37,7 +37,7 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 | C14 | Product documents (inputs) | container | `docs/product/site` | unchanged | PRD/DECISION/REVIEW; wording changes proposed to the owner, not edited |
 | C15 | Sync fetch and verify (`scripts/sync.mjs`) | component | `scripts` | built (TASK-007) | commands `fetch` and `lock [<commit> [<tag>]]`; archive download, per-file verification against the committed lock only, atomic cache `.cache/sync/<commit>/` plus `listing.tsv`; library modules `scripts/lib/tar.mjs` (tar reader with header checksum), `scripts/lib/sync-set.mjs` (the six globs), `scripts/lib/lock.mjs` (blob id, sha256, listing, tree hash, pin and lock validation); `npm run build` runs the fetch first |
 | C16 | Transform, sanitize, link map (`scripts/lib/transform.mjs`) | component | `scripts` | new | frontmatter, remark-parse + remark-gfm, HTML as text, comments dropped, links mapped, HTML + `.md` + manifest |
-| C17 | Pin facts extractor (`scripts/lib/pin-facts.mjs`) | component | `scripts` | new | proof.md figures and anchor; README Status sentences and Install-range commands; fails when missing |
+| C17 | Pin facts extractor (`scripts/lib/pin-facts.mjs`) | component | `scripts` | new | proof.md figures and anchor; README Status sentences and Install-range commands; the Real output excerpt of docs/concepts/workflow.md; fails when missing |
 | C18 | Translation index (`src/lib/translations`) | component | `src` | new | pairs, hreflang, sitemap alternates, switcher, staleness |
 | C19 | Pages, layouts, endpoints | component | `src` | new | address table, titles, footer, indexing switch; one controls script (<= 2048 B) on four site pages, no other |
 | C20 | Search index step | component | `package.json` | new | `pagefind --site dist` |
@@ -50,7 +50,7 @@ Sources: `docs/product/site/PRD.md`, `DECISION.md`, `REVIEW.md` (round 3); the p
 
 Paths deeper than the top level (`scripts/lib/...`, `src/lib/...`, `.github/workflows/...`) are planned file names inside new top-level paths; the validator checks the top-level path.
 
-Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19) -> C20 -> C21.
+Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19) -> C20 -> C21. The pages (C19) call C17 (`readPinFacts`) inside `astro build`, so a missing sentence, figure or heading fails the build there.
 
 ## Boundaries
 
@@ -60,7 +60,7 @@ Build pipeline (`npm run build`): C15 -> C16 and C17 -> `astro build` (C18, C19)
 | C15 | proofline (external) | HTTPS GET codeload archive of `<commit>`, no credential; contents verified per file | C15 -> external |
 | C15 | C16 | `.cache/sync/<commit>/` tree of the locked files + `listing.tsv` (one `path<TAB>type<TAB>blob` line per archive file and directory, sorted, LF-terminated, directories with an empty blob; its sha256 is the lock's `tree_sha256`); address the folder by the pinned commit and never list `.cache/sync/`, which may hold leftover `<commit>.tmp-*` or `<commit>.bad-*` folders of a killed fetch | C15 -> C16 |
 | C16 | C19 | page manifest `[{source, address, lang, title, description, html, md_path, translated_from?, headings[]}]` | C16 -> C19 |
-| C17 | C19 | pin facts `{version, figures_date, does_not_prove_id, not_proven_sentence, codex_sentence, readme_commands[], readme_inline_spans[], commit, tag}` | C17 -> C19 |
+| C17 | C19 | pin facts `{version, figures_date, does_not_prove_id, not_proven_sentence, codex_sentence, readme_commands[], readme_inline_spans[], commit, tag, real_output {anchor, opening, cause, tests, review, commit}}` | C17 -> C19 |
 | C18 | C19 | `alternates(page)`, `switcherTarget(page)`, `isStale(source, options)`, `checkStale(page, source, options)` | C18 -> C19 |
 | C19 | C20 | `dist/` HTML with `<html lang>` and `data-pagefind-body` | C19 -> C20 |
 | C20 | C21 | `dist/` incl. `dist/pagefind/` | C20 -> C21 |
