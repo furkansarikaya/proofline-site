@@ -8,6 +8,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { load } from 'cheerio';
+import { ENV_KEYS } from '../src/lib/indexing.ts';
 import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -475,20 +476,24 @@ describe('built site', () => {
 
   before(() => {
     outDir = join(makeTempDir('proofline-site-'), 'dist');
-    const r = spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', outDir], { cwd: root, encoding: 'utf8' });
+    // The scan reads a closed build whatever the shell exports: the four indexing variables are removed from the inherited environment.
+    const env = { ...process.env };
+    for (const key of ENV_KEYS) delete env[key];
+    const r = spawnSync(process.execPath, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'build', '--outDir', outDir], { cwd: root, encoding: 'utf8', env });
     build = { status: r.status, stderr: `${r.stdout ?? ''}${r.stderr ?? ''}` };
   }, { timeout: 120000 });
 
   const pages = () => walk(outDir).filter((f) => f.endsWith('.html'));
 
-  // The page head of TASK-004 prints absolute addresses that name the site, not a resource to load: the og:* content, the
-  // link rel="alternate" hrefs and the JSON-LD block. Only these three are removed before the host scan of a built page;
+  // The page head of TASK-004 and TASK-006 prints absolute addresses that name the site, not a resource to load: the og:* content, the
+  // link rel="alternate" hrefs, the link rel="canonical" href and the JSON-LD block. Only these four are removed before the host scan of a built page;
   // any other http(s) address in a built page (a stylesheet, script, image or font from another host) still fails.
   const withoutHeadMetadata = (html) => {
     const $ = load(html);
     $('script[type="application/ld+json"]').remove();
     $('meta[property^="og:"]').removeAttr('content');
     $('link[rel="alternate"]').removeAttr('href');
+    $('link[rel="canonical"]').removeAttr('href');
     return $.html();
   };
 
@@ -507,12 +512,13 @@ describe('built site', () => {
       '<html><head>',
       '<meta property="og:image" content="https://proofline.technology/og-default.png">',
       '<link rel="alternate" hreflang="en" href="https://proofline.technology/">',
+      '<link rel="canonical" href="https://proofline.technology/">',
       '<script type="application/ld+json">{"@context":"https://schema.org"}</script>',
       '<link rel="stylesheet" href="https://cdn.example/a.css"><img src="http://img.example/b.png" alt="">',
       '<link rel="alternate stylesheet" href="https://cdn.example/c.css"><meta name="x" content="https://cdn.example/d">',
       '</head><body></body></html>',
     ].join(''));
-    assert.doesNotMatch(probe, /proofline\.technology|schema\.org/, 'the og content, the alternate hrefs and the JSON-LD block are skipped');
+    assert.doesNotMatch(probe, /proofline\.technology|schema\.org/, 'the og content, the alternate and canonical hrefs and the JSON-LD block are skipped');
     const repositoryProbe = withoutRepositoryLinks([
       '<a href="https://github.com/furkansarikaya/proofline">a</a>',
       '<a href="https://github.com/furkansarikaya/proofline-site">b</a>',

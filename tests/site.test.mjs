@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { load } from 'cheerio';
 import YAML from 'yaml';
 import { startServer } from '../scripts/serve-dist.mjs';
+import { ENV_KEYS } from '../src/lib/indexing.ts';
 import { makeTempDir, removeTempDirs, sweepStale } from './temp-dirs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -213,12 +214,19 @@ function raw(url, path, method = 'GET') {
 
 const identical = () => ({ 'index.html': '<p>one</p>', 'tr/index.html': '<p>iki</p>', 'robots.txt': 'Disallow: /\n' });
 
+/** The environment of the shared build: the inherited one without the four indexing variables, so dist/ is always the closed build. */
+function closedEnv() {
+  const env = { ...process.env };
+  for (const key of ENV_KEYS) delete env[key];
+  return env;
+}
+
 describe('built site', () => {
-  let build = { status: -1, stderr: '' };
+  let build = { status: -1, stderr: '', output: '' };
   before(() => {
     rmSync(dist, { recursive: true, force: true }); // a stale dist/ must never stand in for this build
-    const r = spawnSync('npm', ['run', 'build'], { cwd: root, encoding: 'utf8' });
-    build = { status: r.status, stderr: r.stderr ?? '' };
+    const r = spawnSync('npm', ['run', 'build'], { cwd: root, encoding: 'utf8', env: closedEnv() });
+    build = { status: r.status, stderr: r.stderr ?? '', output: `${r.stdout ?? ''}${r.stderr ?? ''}` };
   }, { timeout: 120000 });
 
   it('build emits exactly index.html, tr/index.html and 404.html', () => {
@@ -351,9 +359,14 @@ describe('built site', () => {
       assert.equal($('meta[name="robots"]').length, 1, `${rel} has exactly one robots meta`);
       assert.equal($('meta[name="robots"]').attr('content'), 'noindex, nofollow');
     }
+    for (const rel of PAGES) assert.equal(page(rel)('link[rel="canonical"]').length, 0, `${rel} holds no canonical link`);
     const lines = read('dist/robots.txt').split('\n').map((l) => l.trim());
     assert.ok(lines.includes('Disallow: /'), 'dist/robots.txt holds Disallow: /');
+    assert.deepEqual(lines.filter((l) => l !== ''), ['User-agent: *', 'Disallow: /'], 'dist/robots.txt holds exactly the two closed lines');
     assert.equal(existsSync(join(dist, 'sitemap.xml')), false, 'no sitemap is emitted');
+    const log = build.output.split('\n').map((l) => l.trim());
+    assert.equal(log.filter((l) => /^indexing: blocked \(.*VERCEL_ENV.*SITE_INDEXABLE.*\)$/.test(l)).length, 1, 'the build log holds one blocked line naming both variables');
+    assert.equal(log.filter((l) => l.startsWith('indexing: allowed')).length, 0, 'the build log holds no allowed line');
   });
 
   it('link check passes on dist and fails on a tree with a missing internal address', () => {
