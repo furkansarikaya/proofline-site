@@ -32,7 +32,8 @@ export function homeFacts(root: string = process.cwd()): HomeFacts {
   return readPinFacts(join(root, 'sync', 'pin.json'), join(root, '.cache', 'sync'));
 }
 
-/** The composition rule of the excerpt: the five `real_output` items in source order, one blank line between them, nothing added or removed (markdown markers stay as written). */
+/** The composition rule of the excerpt: the five `real_output` items in source order, one blank line between them, nothing added or removed. It returns the unrendered source
+ *  text, Markdown markers included; the page renders it through `renderMarkdown` of scripts/lib/transform.mjs (RealOutput.astro), so the markers show as strong and code. */
 export function excerptText(r: RealOutput): string {
   return [r.opening, r.cause, r.tests, r.review, r.commit].join('\n\n');
 }

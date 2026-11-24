@@ -37,7 +37,7 @@ An isometric drawing in SVG (own drawing, not copied): a belt carries slabs (tas
 - Legend sentences come from the README: PLAN "frozen with a scope: file list"; TEST "RED, then GREEN, reproduced by the gates"; REVIEW "never by whoever wrote the change"; SECURITY "cannot be waived"; VERIFY "CODE_DONE only when every required gate passed".
 
 ## Real output as the visual material
-The lead's final message of a real run (the section "Real output" of docs/concepts/workflow.md in the proofline repository, pinned commit) is shown as an excerpt, text unedited, with the line that says which parts were left out and a link to the source. **R-5** It is always marked `lang="en"`, also on a Turkish page, and the Turkish caption says it is quoted from the English source. Terminal and command blocks are marked `lang="en"` and `translate="no"`.
+The lead's final message of a real run (the section "Real output" of docs/concepts/workflow.md in the proofline repository, pinned commit) is shown as an excerpt, rendered from its Markdown (the labels in strong, code spans in the code face, the words not edited), with the line that says which parts were left out and a link to the source. **R-5** It is always marked `lang="en"`, also on a Turkish page, and the Turkish caption says it is quoted from the English source. Terminal and command blocks are marked `lang="en"` and `translate="no"`.
 
 ## Limits and trust statement (R-6)
 The limits section of the home page and the trust page must say, together and in this order, in the page's language:

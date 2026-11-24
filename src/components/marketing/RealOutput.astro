@@ -1,8 +1,11 @@
 ---
-// The real output of a finished run (TASK-019, DESIGN-marketing R-5): the excerpt exactly as the pin facts compose it, always `lang="en"`, and its caption with the link to the
-// pinned source. The text is shown as written, with its Markdown markers: it is compared character for character with the real output fact.
+// The real output of a finished run (TASK-019, DESIGN-marketing R-5): the excerpt as the pin facts compose it, always `lang="en"`, and its caption with the link to the
+// pinned source. The text is rendered from its Markdown by the one renderer of the site, `renderMarkdown` of scripts/lib/transform.mjs (TASK-008): the labels in strong, code
+// spans in code, raw HTML as visible text. It is the only set:html of this file and it takes the call itself, never a variable, so no text reaches the page that did not pass the transform.
+import { renderMarkdown } from '../../../scripts/lib/transform.mjs';
+
 interface Props {
-  /** The composed excerpt (`excerptText` of src/lib/home.ts). */
+  /** The composed excerpt (`excerptText` of src/lib/home.ts), unrendered Markdown. */
   text: string;
   caption: string;
   /** The label in front of the link, for example "Source:". */
@@ -15,6 +18,6 @@ const { text, caption, sourceLabel, href, linkText } = Astro.props;
 ---
 
 <figure class="home-reply-fig">
-  <div class="home-reply" lang="en">{text}</div>
+  <div class="home-reply" lang="en" set:html={renderMarkdown(text)}></div>
   <figcaption class="home-cap">{caption} {sourceLabel} <a href={href}>{linkText}</a></figcaption>
 </figure>

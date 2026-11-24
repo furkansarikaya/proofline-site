@@ -47,6 +47,8 @@ const FIXTURE_ROOT_FILES = { readme: 'tests/fixtures/launch/README.pin.md', proo
 /** The excerpt as the rule says, written out here independently of src/lib/home.ts: the five items in source order, one blank line between them. */
 const composed = (r) => [r.opening, r.cause, r.tests, r.review, r.commit].join('\n\n');
 const squash = (text) => text.replace(/\s+/g, ' ').trim();
+/** The composed excerpt without its Markdown markers and nothing else: the `**` pairs and the backticks of code spans (the markers the transform renders as strong and code). */
+const withoutMarkers = (text) => text.replace(/\*\*/g, '').replace(/`/g, '');
 const read = (rel) => readFileSync(join(root, rel), 'utf8');
 const pairsFixture = JSON.parse(read('tests/fixtures/home/pairs.json'));
 const HOME_ONLY = [{ en: '/', tr: '/tr/' }];
@@ -426,7 +428,7 @@ describe('home pages', { timeout: 120000 }, () => {
         const reply = $('.home-reply');
         assert.equal(reply.length, 1, `${lang} ${label}: one excerpt`);
         assert.equal(reply.attr('lang'), 'en', `${lang} ${label}: the excerpt is English`);
-        assert.equal(reply.text(), composed(facts.real_output), `${lang} ${label}: the excerpt equals the real output fact character for character`);
+        assert.equal(squash(reply.text()), squash(withoutMarkers(composed(facts.real_output))), `${lang} ${label}: the excerpt text equals the real output fact without its Markdown markers`);
         const cap = $('figcaption.home-cap');
         assert.equal(cap.length, 1, `${lang} ${label}: one caption`);
         assert.match(cap.text(), caption[lang], `${lang} ${label}: the caption says the text is unedited`);
@@ -445,7 +447,7 @@ describe('home pages', { timeout: 120000 }, () => {
     const changed = factsOf(fixtureRoot({ edit: { workflow: (text) => { assert.ok(text.includes(fixtureFacts.real_output.opening)); return text.replace(fixtureFacts.real_output.opening, 'The opening line was changed in the fixture.'); } } }));
     assert.equal(changed.real_output.opening, 'The opening line was changed in the fixture.');
     const $changed = await render('en', { facts: changed });
-    assert.equal($changed('.home-reply').text(), composed(changed.real_output));
+    assert.equal(squash($changed('.home-reply').text()), squash(withoutMarkers(composed(changed.real_output))));
     assert.ok($changed('.home-reply').text().startsWith('The opening line was changed in the fixture.'));
     assert.notEqual($changed('.home-reply').text(), fixtureHtml.en('.home-reply').text());
     // The source holds no typed copy: no file under src/ has a line of either excerpt, the pinned commits or the tag.
@@ -456,6 +458,86 @@ describe('home pages', { timeout: 120000 }, () => {
       const text = read(`src/${file}`);
       for (const needle of [...lines, realFacts.commit, FIXTURE_COMMIT, realFacts.tag]) assert.ok(!text.includes(needle), `src/${file} holds no typed pin text: ${needle.slice(0, 40)}`);
     }
+  });
+
+  it('excerpt renders labels in strong and code spans in code', () => {
+    for (const [lang] of PAGES) {
+      for (const [label, $, facts] of [['built', page(lang), realFacts], ['fixture', fixtureHtml[lang], fixtureFacts]]) {
+        const source = composed(facts.real_output);
+        const labels = [...source.matchAll(/\*\*([^*]+)\*\*/g)].map((m) => m[1]);
+        const spans = [...source.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+        assert.deepEqual(labels, ['Cause:', 'Tests:', 'Review:', 'Commit:'], `${lang} ${label}: the source has the four labels`);
+        assert.ok(spans.length >= 1, `${lang} ${label}: the source has code spans`);
+        const reply = $('.home-reply');
+        assert.equal(reply.attr('lang'), 'en', `${lang} ${label}: lang stays en`);
+        assert.equal(reply.children('p').length, 5, `${lang} ${label}: five paragraphs, one per item`);
+        assert.equal(reply.children().length, 5, `${lang} ${label}: nothing but paragraphs at the top`);
+        assert.deepEqual(reply.find('strong').toArray().map((el) => $(el).text()), labels, `${lang} ${label}: each label is in a strong element`);
+        assert.deepEqual(reply.find('code').toArray().map((el) => $(el).text()), spans, `${lang} ${label}: one code element per code span, with its text`);
+        assert.deepEqual(reply.find('*').toArray().map((el) => el.tagName).filter((tag) => !['p', 'strong', 'code'].includes(tag)), [], `${lang} ${label}: only p, strong and code`);
+        assert.ok(!reply.text().includes('**'), `${lang} ${label}: no ** in the text`);
+        assert.ok(!reply.text().includes('`'), `${lang} ${label}: no backtick in the text`);
+        assert.equal(reply.find('[lang]').length, 0, `${lang} ${label}: no inner lang`);
+        assert.equal(reply.find('[class], [style], [id]').length, 0, `${lang} ${label}: no class, style or id inside the excerpt`);
+      }
+    }
+  });
+
+  it('excerpt visible text equals the composed source without markers', async () => {
+    for (const [lang] of PAGES) {
+      for (const [label, $, facts] of [['built', page(lang), realFacts], ['fixture', fixtureHtml[lang], fixtureFacts]]) {
+        const source = composed(facts.real_output);
+        assert.equal((source.match(/\*\*/g) ?? []).length % 2, 0, `${lang} ${label}: ** markers come in pairs`);
+        assert.equal((source.match(/`/g) ?? []).length % 2, 0, `${lang} ${label}: backticks come in pairs`);
+        const shown = squash($('.home-reply').text());
+        const expected = squash(withoutMarkers(source));
+        assert.equal(shown, expected, `${lang} ${label}: the visible text is the composed source with only the markers removed`);
+        assert.deepEqual(shown.split(' '), expected.split(' '), `${lang} ${label}: word for word`);
+      }
+    }
+    // The comparison has teeth: a word missing or added on the page is not the composed source.
+    const base = squash(withoutMarkers(composed(fixtureFacts.real_output)));
+    const $page = fixtureHtml.en;
+    assert.notEqual(squash($page('.home-reply').text()).replace(/ \S+$/, ''), base, 'a missing last word differs');
+    assert.notEqual(`${squash($page('.home-reply').text())} extra`, base, 'an added word differs');
+    // A fact that changes shows on the page with its markers rendered, not as written.
+    const changed = factsOf(fixtureRoot({ edit: { workflow: (text) => text.replace(fixtureFacts.real_output.opening, 'A new opening with `code` in it.') } }));
+    const $changed = await render('en', { facts: changed });
+    assert.ok(squash($changed('.home-reply').text()).startsWith('A new opening with code in it.'));
+    assert.equal($changed('.home-reply p').first().find('code').text(), 'code');
+  });
+
+  it('hostile facts render inert through the excerpt path', async () => {
+    const hostile = {
+      ...fixtureFacts.real_output,
+      opening: '<script>alert(1)</script>',
+      cause: '**Cause:** <img src=x onerror=alert(1)> and `<b>code</b>`',
+      tests: '**Tests:** [x](javascript:alert(1)) and [y](JaVaScRiPt:alert(2)) and ![z](data:text/html,x)',
+      review: '<div onclick="x()">block</div>',
+      commit: '**Commit:** <iframe src="https://example.com/"></iframe> <https://example.com/ok>',
+    };
+    const $ = await render('en', { facts: { ...fixtureFacts, real_output: hostile } });
+    const reply = $('.home-reply');
+    assert.equal(reply.length, 1);
+    for (const tag of ['script', 'img', 'div', 'iframe', 'object', 'embed', 'style', 'input']) assert.equal(reply.find(tag).length, 0, `0 ${tag} elements in the excerpt`);
+    assert.equal($('script').length, fixtureHtml.en('script').length, 'no script element anywhere on the page beyond the ordinary ones');
+    assert.equal($('img').length, fixtureHtml.en('img').length, 'no img element anywhere on the page beyond the ordinary ones');
+    const names = reply.find('*').toArray().flatMap((el) => Object.keys(el.attribs ?? {}));
+    assert.deepEqual(names.filter((n) => n.startsWith('on')), [], '0 attributes starting with on');
+    assert.deepEqual(reply.find('*').toArray().flatMap((el) => Object.values(el.attribs ?? {})).filter((v) => /javascript:/i.test(v)), [], '0 javascript: in any attribute');
+    const shown = reply.text();
+    for (const written of ['<script>alert(1)</script>', '<img src=x onerror=alert(1)>', '<b>code</b>', '<div onclick="x()">block</div>', '<iframe src="https://example.com/"></iframe>']) assert.ok(shown.includes(written), `${written} is visible`);
+    assert.ok(shown.includes('Tests: x and y and z'), 'the labels of the unsafe links and the alt text of the unsafe image stay visible');
+    assert.deepEqual(reply.find('a').toArray().map((a) => a.attribs.href), ['https://example.com/ok'], 'only the safe target is a link');
+    assert.equal(reply.find('strong').text(), 'Cause:Tests:Commit:');
+    // The text that is not an excerpt text cannot reach the page: the only set:html under src/ that takes the excerpt is the call of the transform itself.
+    const uses = [];
+    for (const file of walk(join(root, 'src'))) {
+      if (/\.(?:woff2|png|ico|svg)$/.test(file)) continue;
+      for (const match of read(`src/${file}`).matchAll(/set:html=\{([^}]+)\}/g)) uses.push([file, match[1]]);
+    }
+    assert.deepEqual(uses, [['components/marketing/RealOutput.astro', 'renderMarkdown(text)'], ['layouts/Base.astro', 'tag'], ['layouts/Base.astro', 'head.jsonLd']]);
+    assert.match(read('src/components/marketing/RealOutput.astro'), /import \{ renderMarkdown \} from '\.\.\/\.\.\/\.\.\/scripts\/lib\/transform\.mjs';/);
   });
 
   it('limits sentence in both languages with its two links', () => {
