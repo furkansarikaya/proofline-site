@@ -9,7 +9,7 @@ import Footer from '../components/marketing/Footer.astro';
 import Header from '../components/marketing/Header.astro';
 import { buildHead } from '../lib/meta.ts';
 import type { PageTitle } from '../lib/meta.ts';
-import { canonicalUrl as canonicalFor, indexing, verificationMeta } from '../lib/indexing.ts';
+import { NOT_FOUND, canonicalUrl as canonicalFor, indexing, verificationMeta } from '../lib/indexing.ts';
 import { controlsScript } from '../lib/nav.ts';
 import { alternates, checkStale, langOf } from '../lib/translations.ts';
 import type { StaleSource } from '../lib/translations.ts';
@@ -54,6 +54,6 @@ if (source) checkStale(path, source);
   <body>
     <Header path={path} />
     <main><slot /></main>
-    <Footer lang={lang} />
+    <Footer lang={lang} bilingual={path === NOT_FOUND} />
   </body>
 </html>

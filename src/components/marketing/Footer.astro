@@ -1,22 +1,28 @@
 ---
 // The one-paragraph footer (TASK-005, ADR 0006): what the site does not do, who hosts it, the licence at the pinned commit and the site repository.
-// The wording is DESIGN-marketing.md "Footer"; the addresses come from src/lib/nav.ts.
+// The wording is DESIGN-marketing.md "Footer"; the addresses come from src/lib/nav.ts. The not-found page holds both languages (TASK-024): `bilingual` keeps the footer ONE
+// paragraph (it wraps on a phone but stays one paragraph) holding two inline spans, English first, each with its own lang, joined by a plain space; every other page keeps its
+// one paragraph in the language of the page, with no span and no lang.
 import { licenseHref, pinnedCommit, SITE_REPO_URL } from '../../lib/nav.ts';
 import type { Lang } from '../../lib/meta.ts';
 
 interface Props {
   lang: Lang;
+  /** Both languages in one footer, for the not-found page only. */
+  bilingual?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, bilingual = false } = Astro.props;
 const license = licenseHref(pinnedCommit());
 
 const TEXT = {
   en: { before: 'No cookies and no analytics scripts. The host keeps ordinary request logs. MIT licensed (', built: 'Built with proofline' },
   tr: { before: 'Çerez ve analitik betiği yok. Barındırıcı olağan istek günlüklerini tutar. MIT lisanslı (', built: 'proofline ile yapıldı' },
-}[lang];
+};
+const parts: readonly Lang[] = bilingual ? ['en', 'tr'] : [lang];
+const Part = bilingual ? 'span' : Fragment;
 ---
 
 <footer class="wrap">
-  <p>{TEXT.before}<a href={license}>LICENSE</a>). <a href={SITE_REPO_URL}>{TEXT.built}</a>.</p>
+  <p>{parts.map((part, i) => <Fragment>{i > 0 ? ' ' : ''}<Part {...(bilingual ? { lang: part } : {})}>{TEXT[part].before}<a href={license}>LICENSE</a>). <a href={SITE_REPO_URL}>{TEXT[part].built}</a>.</Part></Fragment>)}</p>
 </footer>

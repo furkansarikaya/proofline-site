@@ -1,10 +1,12 @@
 ---
 // The site header (TASK-005): brand, menu, GitHub link, language link, theme button. The DOM order is the tab order (DESIGN.md "Header controls").
+// The not-found page (TASK-024) holds both languages, so its header prints no language link (the address is NOT_FOUND of src/lib/indexing.ts); every other address keeps it.
 // The theme button stays hidden until /assets/controls.js adds `js` to the html element (src/styles/components.css). No style, no CSS import:
 // Base.astro imports the one components.css, so the build keeps one stylesheet.
 import Github from '../../assets/icons/github.svg';
 import Moon from '../../assets/icons/moon.svg';
 import Sun from '../../assets/icons/sun.svg';
+import { NOT_FOUND } from '../../lib/indexing.ts';
 import { HOME } from '../../lib/meta.ts';
 import { REPO_URL, menu } from '../../lib/nav.ts';
 import { langOf, switcherTarget } from '../../lib/translations.ts';
@@ -46,7 +48,7 @@ const TEXT = {
     </nav>
     <div class="tools">
       <a class="tool" id="b-gh" href={REPO_URL} aria-label={TEXT.github}><Github /></a>
-      <a class="tool" id="b-lang" href={target.href} lang={target.lang} hreflang={target.lang} aria-label={TEXT.languageName}>{TEXT.language}</a>
+      {path !== NOT_FOUND && <a class="tool" id="b-lang" href={target.href} lang={target.lang} hreflang={target.lang} aria-label={TEXT.languageName}>{TEXT.language}</a>}
       <button type="button" class="tool theme" id="b-theme" aria-label={TEXT.themeLight} data-name-light={TEXT.themeLight} data-name-dark={TEXT.themeDark}>
         <span class="cell cell-sun"><Sun /></span><span class="cell cell-moon"><Moon /></span>
       </button>

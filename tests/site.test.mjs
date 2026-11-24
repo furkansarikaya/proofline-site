@@ -44,6 +44,33 @@ function page(rel) {
   return existsSync(file) ? load(readFileSync(file, 'utf8')) : null;
 }
 
+/** The problems of the title rule of the not-found page: the English title, og:title equal to it, no evidence word. */
+function notFoundTitleProblems($) {
+  const problems = [];
+  const title = $('title').text();
+  const og = $('meta[property="og:title"]').attr('content') ?? '';
+  if (title !== `Page not found | ${BRAND.en}`) problems.push(`the title is "${title}"`);
+  if (og !== title) problems.push(`og:title is "${og}"`);
+  if (/evidence|kanıt|kanit/i.test(title) || /evidence|kanıt|kanit/i.test(og)) problems.push('the title holds an evidence word');
+  return problems;
+}
+
+/** The problems of the block rule of the not-found page: one English block and one Turkish block in main, each with its heading and its home link. */
+function notFoundBlockProblems($) {
+  const problems = [];
+  if ($('main [lang]').length !== 2) problems.push(`main holds ${$('main [lang]').length} elements with a lang`);
+  const en = $('main [lang="en"]');
+  const tr = $('main [lang="tr"]');
+  if (en.length !== 1 || tr.length !== 1) return [...problems, 'main does not hold one block of each language'];
+  if (en.find('[lang]').length + tr.find('[lang]').length > 0) problems.push('a block holds an element with its own lang');
+  if ($('h1').length !== 1 || en.find('h1').text().trim() !== 'Page not found') problems.push('the English block has no H1 "Page not found"');
+  if (tr.find('h2').text().trim() !== 'Sayfa bulunamadı') problems.push('the Turkish block has no H2 with its heading');
+  if (en.find('a[href="/"]').length !== 1) problems.push('the English block has no link to /');
+  if (tr.find('a[href="/tr/"]').length !== 1) problems.push('the Turkish block has no link to /tr/');
+  if (en.find('a[href^="/tr/"]').length > 0 || tr.find('a[href="/"]').length > 0) problems.push('a block links to the home page of the other language');
+  return problems;
+}
+
 /** The ordered head structure of a page: charset, viewport, robots meta and title, whatever else the head holds. */
 function headSignature($) {
   const wanted = ['meta[charset]', 'meta[name=viewport]', 'meta[name=robots]', 'title'];
@@ -276,10 +303,33 @@ describe('built site', () => {
     assert.equal(tr('html').attr('lang'), 'tr');
     assert.ok(en('a[href="/tr/"]').length >= 1, 'the English root links to /tr/');
     assert.ok(tr('a[href="/"]').length >= 1, 'the Turkish root links to /');
+    // The not-found page (TASK-024) holds exactly one English block and one Turkish block in main, each with its heading and its home link; its footer is one paragraph (DESIGN-marketing.md
+    // "Footer") holding an English span and a Turkish span, each with its own lang, English first, outside main. Every built page holds exactly one footer paragraph.
+    for (const rel of PAGES) assert.equal(page(rel)('footer p').length, 1, `${rel}: the footer is one paragraph`);
+    assert.deepEqual(notFound('footer p span').toArray().map((span) => span.attribs.lang), ['en', 'tr'], '404: the footer paragraph holds an English span, then a Turkish span');
+    assert.equal(notFound('footer p').attr('lang'), undefined, '404: the footer paragraph has no lang of its own');
+    for (const rel of PAGES.filter((name) => name !== '404.html')) assert.equal(page(rel)('footer [lang], footer span').length, 0, `${rel}: the footer paragraph has no lang and no span`);
+    const footerProbe = (change) => { const $ = load(notFound.html()); change($); return $('footer p').length === 1 && $('footer p span').toArray().map((span) => span.attribs.lang).join() === 'en,tr' && $('footer p').attr('lang') === undefined; };
+    assert.equal(footerProbe(() => {}), true, 'the footer rule accepts the built page');
+    assert.equal(footerProbe(($) => $('footer p').after('<p>x</p>')), false, 'a second footer paragraph is found');
+    assert.equal(footerProbe(($) => $('footer p span').last().attr('lang', 'en')), false, 'a second English span is found');
+    assert.equal(footerProbe(($) => $('footer p span').first().before($('footer p span').last())), false, 'a Turkish span before the English span is found');
+    assert.equal(footerProbe(($) => $('footer p').attr('lang', 'en')), false, 'a lang on the paragraph is found');
+    assert.deepEqual(notFoundBlockProblems(notFound), [], '404 holds one English block and one Turkish block');
     assert.ok(notFound('[lang="en"]:not(html)').length >= 1, '404 has an English block');
     assert.ok(notFound('[lang="tr"]:not(html)').length >= 1, '404 has a Turkish block');
     assert.ok(notFound('a[href="/"]').length >= 1, '404 links to /');
     assert.ok(notFound('a[href="/tr/"]').length >= 1, '404 links to /tr/');
+    // The rule itself: each broken rule is found, on a copy of the built page.
+    const probe = (change) => { const $ = load(notFound.html()); change($); return notFoundBlockProblems($); };
+    assert.ok(probe(($) => $('main [lang="tr"]').removeAttr('lang')).length > 0, 'a Turkish block with no lang is found');
+    assert.ok(probe(($) => $('main [lang="en"]').removeAttr('lang')).length > 0, 'an English block with no lang is found');
+    assert.ok(probe(($) => $('main [lang="tr"] h2').replaceWith('<h1>Sayfa bulunamadı</h1>')).length > 0, 'a second H1 is found');
+    assert.ok(probe(($) => $('main [lang="tr"] h2').text('Sayfa bulunamadi')).length > 0, 'a Turkish heading with its letters changed is found');
+    assert.ok(probe(($) => $('main [lang="en"] a').remove()).length > 0, 'an English block with no home link is found');
+    assert.ok(probe(($) => $('main [lang="tr"] a').attr('href', '/')).length > 0, 'a Turkish block with the English home link is found');
+    assert.ok(probe(($) => $('main [lang="en"]').append($('main [lang="tr"]'))).length > 0, 'a Turkish block inside the English block is found');
+    assert.ok(probe(($) => $('main').append('<section lang="tr"><p>x</p></section>')).length > 0, 'a third block is found');
   });
 
   it('pages hold one heading, a sentence and the same head structure', () => {
@@ -385,7 +435,16 @@ describe('built site', () => {
     }
     assert.equal(page('index.html')('title').text(), BRAND.en);
     assert.equal(page('tr/index.html')('title').text(), BRAND.tr);
-    assert.equal(page('404.html')('title').text(), `Page not found | Sayfa bulunamadı | ${BRAND.en}`);
+    // The not-found page (TASK-024): the English title of the site title kind with the English suffix; the old two-language title is gone.
+    assert.deepEqual(notFoundTitleProblems(page('404.html')), [], 'the title and og:title of the not-found page');
+    assert.equal(page('404.html')('title').text(), `Page not found | ${BRAND.en}`);
+    // The rule itself: each broken rule is found, on a copy of the built page.
+    const probe = (change) => { const $ = load(page('404.html').html()); change($); return notFoundTitleProblems($); };
+    assert.ok(probe(($) => $('title').text(`Page not found | Sayfa bulunamadı | ${BRAND.en}`)).length > 0, 'the old two-language title is found');
+    assert.ok(probe(($) => $('title').text(`Page not found | ${BRAND.tr}`)).length > 0, 'the Turkish suffix is found');
+    assert.ok(probe(($) => $('meta[property="og:title"]').attr('content', 'Page not found')).length > 0, 'an og:title that differs is found');
+    assert.ok(probe(($) => { $('title').text(`Evidence | ${BRAND.en}`); $('meta[property="og:title"]').attr('content', `Evidence | ${BRAND.en}`); }).length > 0, 'an evidence word is found');
+    assert.ok(probe(($) => { $('title').text(`Kanıt | ${BRAND.en}`); $('meta[property="og:title"]').attr('content', `Kanıt | ${BRAND.en}`); }).length > 0, 'a Turkish evidence word is found');
   });
 
   it('preview image is a 1200 by 630 PNG that ships to dist', () => {
