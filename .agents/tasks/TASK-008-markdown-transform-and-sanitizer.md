@@ -11,7 +11,7 @@ prd: site
 
 ## Goal
 
-A deterministic transform turns a synced Markdown document into inert HTML: raw HTML in the source is shown as visible text, comments are dropped, links with an unsafe scheme are not links, and headings, tables and the `translated-from` header line are read without editing the text, so the automatic sync can never add a script, an element or an event attribute to a page.
+A deterministic transform turns a synced Markdown document into inert HTML: raw HTML in the source is shown as visible text, comments are dropped, links with an unsafe scheme are not links, and headings, tables and the `translated-from` header line are read without editing the text, so the automatic sync can never add a script, an element or an event attribute to a page. The real output excerpt on the home page goes through the same transform, so its Markdown markers render as emphasis and code instead of showing as raw characters.
 
 ## Context
 
@@ -22,7 +22,8 @@ Request (user's words, from the technical design step, quoted in `/docs/adr/0003
 - Source requirements in `/docs/product/site/PRD.md`: NFR-7 (raw HTML made inert, comments dropped, links with a scheme other than http, https or mailto not rendered as links), FR-14 (headings render without hand edits; `translated-from` header lines are read and not shown), and the user story AC-44.
 - ADR `/docs/adr/0003-document-sync-pin-lock-and-sync-workflow.md` point 5 (mdast based, independent of Astro's processor; frontmatter split with `yaml`; remark-parse and remark-gfm; every `html` node becomes a `text` node with the same literal value except comments; remark-rehype without `allowDangerousHtml` and rehype-stringify; no syntax highlighting; heading ids with github-slugger) and `/docs/adr/0001-astro-static-site-and-toolchain.md` (Astro's Markdown processor is not used for synced content). Architecture component C16 in `/docs/design/ARCHITECTURE.md`.
 - Existing: `package.json` has `astro`, `yaml`, `cheerio`, `playwright` and `@axe-core/playwright`; `unified` and `github-slugger` are installed only as dependencies of Astro, and `remark-parse`, `remark-gfm`, `remark-rehype` and `rehype-stringify` are not installed. There is no `scripts/lib/`.
-- Expected scope (5 paths): `scripts/lib/transform.mjs`, `tests/transform.test.mjs`, `tests/fixtures/transform/` (Markdown fixtures), `package.json`, `package-lock.json`.
+- The home page shows the real output excerpt with its raw Markdown markers (`**Cause:**` and backticks are visible): `src/components/marketing/RealOutput.astro` prints `excerptText(real)` of `src/lib/home.ts` as plain text, a choice recorded by TASK-019 as an unverified low assumption (AS-7, "the excerpt shows its markdown markers as written") because this transform did not exist yet. The product owner decided on 2026-11-24 that the excerpt is rendered through this task's transform. `tests/home.test.mjs` currently compares the shown excerpt with the real output fact character by character; that check moves to the visible text after rendering.
+- Expected scope (9 paths): `scripts/lib/transform.mjs`, `tests/transform.test.mjs`, `tests/fixtures/transform/` (Markdown fixtures), `package.json`, `package-lock.json`, `src/components/marketing/RealOutput.astro`, `src/lib/home.ts`, `tests/home.test.mjs`, `docs/design/DESIGN-marketing.md` (rule R-5 and the excerpt row: rendered instead of shown as written). The done task file of TASK-019 is not edited.
 - Expected interface (the plan may name it differently): a function that takes a repository path and the source text and returns the frontmatter object, the HTML string, the list of headings (depth, text, id), the `translated-from` data, and the list of links and images with their source line; it accepts an optional function that rewrites a link target (TASK-009 supplies it) and leaves targets unchanged without it.
 - The `translated-from` header at the candidate pin looks like this, in `docs/guides/tr/gunluk-kullanim.md`: `<!-- translated-from: docs/guides/daily-use.md; blob: 63606a83788971a1ada89515bb008c32cc701e2b -->`.
 - New dependencies (approved by the product owner, exact versions, no `^` or `~`): `remark-gfm`, `remark-rehype` and `rehype-stringify`; the exact versions are the newest releases that are at least 14 days old on the day the task is run, chosen and recorded by the plan.
@@ -64,11 +65,18 @@ Request (user's words, from the technical design step, quoted in `/docs/adr/0003
   Covers: NFR-7
 - AC-14: `package.json` is read -> `remark-gfm`, `remark-rehype` and `rehype-stringify` are listed with exact versions (no `^` or `~`), the direct dependencies of the Assumption are listed with exact versions, `package-lock.json` holds them, and `npm ci` exits 0.
   Covers: NFR-7
-- AC-15: Failure criterion (anti-goal): the task is not done if a dangerous string is made harmless by deleting it (its text must stay visible), if the safe result depends on a pattern search over the output instead of on the transform, or if any HTML element of the source reaches the output as an element, even when the three strings of PRD AC-44 pass.
+- AC-15: `npm run build` is run and `dist/index.html` and `dist/tr/index.html` are read -> inside the real output excerpt the five items of the real output fact render through the transform of this task: the visible text of the excerpt holds 0 `**` sequences and 0 backtick characters, `Cause:`, `Tests:`, `Review:` and `Commit:` are each inside a `strong` element, and every code span of the source (for example `paginate()` and `src/service.js`) is a `code` element; the excerpt keeps `lang="en"`.
+  Covers: FR-14
+- AC-16: The visible text of the rendered excerpt equals the composed source text (`excerptText`) with only the Markdown markers removed -> `tests/home.test.mjs` asserts this for the real pin facts, word for word, and fails if a word of the source is missing or added.
+  Covers: FR-14
+- AC-17: The excerpt is rendered by the same function as the synced documents (no second Markdown renderer, no `set:html` of text that did not pass the transform) -> a test feeds a real output fact holding the hostile strings of AC-6, AC-7 and AC-8 through the excerpt path and the built page holds 0 `script` and `img` elements, 0 attributes starting with `on` and 0 `javascript:` in any attribute, with the source text visible.
+  Covers: NFR-7
+- AC-18: Failure criterion (anti-goal): the task is not done if a dangerous string is made harmless by deleting it (its text must stay visible), if the safe result depends on a pattern search over the output instead of on the transform, or if any HTML element of the source reaches the output as an element, even when the three strings of PRD AC-44 pass.
 
 ## Out of scope
 
 - The link map: relative links inside the synced set, links outside it and missing targets (TASK-009); the transform here leaves targets unchanged unless a rewrite function is given.
+- Any change to the home page other than the excerpt rendering of AC-15 to AC-17 (layout, copy, diagram, styles).
 - Page routes, layouts and titles (TASK-011), the Markdown copies (TASK-012) and the scan of the built `dist/` for active HTML (TASK-029 and TASK-030).
 - Syntax highlighting, footnotes, math and any Markdown extension other than GFM tables, strikethrough and task lists.
 - Content Security Policy headers (TASK-027).
@@ -77,12 +85,14 @@ Request (user's words, from the technical design step, quoted in `/docs/adr/0003
 
 - ADR 0003 point 5: independent of Astro's Markdown processor; remark-parse plus remark-gfm; `html` nodes become text nodes except comments; no `allowDangerousHtml`; no syntax highlighting (inline `style=` would break the CSP of ADR 0006).
 - ADR 0001: plain `.mjs` under `scripts/`, tests under `node --test`; every dependency is an exact version.
+- The home page excerpt uses the transform's exported function; it adds no dependency and no other Markdown library.
 - The three new dependencies are the owner-approved list; the exact versions are chosen at run time (newest release at least 14 days old) and recorded by the plan.
 
 ## Risks
 
 - This is the cross-site-scripting boundary of the site (NFR-7): a parser change or an option that passes raw HTML through would reach every synced page; the hostile fixtures of AC-6 to AC-12 are the guard.
 - remark-gfm turns bare addresses into links (autolink literals); those links use http or https and are allowed, but a bare `javascript:` text is not turned into a link by the parser, which AC-9 does not cover beyond the listed forms.
+- The excerpt is shown inside the home page's styles: the rendered `strong` and `code` elements must follow DESIGN.md (the code face for code, no new colours); the visual check covers the home page again.
 - Heading ids must match GitHub's, or the anchors of the upstream documents break; AC-2 covers the duplicate-id rule only.
 - The dependencies in the Assumption are not in the owner's list of three; the plan records the choice and the report names it.
 
