@@ -108,7 +108,8 @@ The patterns centred title with two buttons and a floating panel, stat band, log
 - numbered-steps: the numbered steps are the real order of the gates, 01 PLAN to 05 VERIFY
 
 ## Gaps
-- Nothing is built yet: every path above marked `planned` is to be created by the implementation tasks. The docs surface is specified in DESIGN-docs.md.
+- The paths above marked `planned` are created by the implementation tasks as they are delivered; the home, get-started, agents, contact and not-found pages and the Markdown transform exist. The docs surface is specified in DESIGN-docs.md.
+- Decided 2026-11-25 (TASK-008, user decision): the real output excerpt on the home pages is rendered from its Markdown (`strong` for the labels, `code` for code spans, five paragraphs), words unedited, inside `div.home-reply` with `lang="en"`. `strong` and `code` reuse the base rules (weight 500, the code face) and add no colour: `--ink` on `--frame` is 15.46 (light) and 14.59 (dark). Paragraphs are one line apart (`1.6em`, the box line height). The three lint patterns above are approved by the owner for this task's check.
 - Decided 2026-11-20 (PRD N-5, ADR 0006 and 0008): one small same-origin controls script, at most 2048 bytes uncompressed, for the saved theme and the copy button; CI checks the size and that no other script is on the four pages. Without it the theme follows the system setting and the command is selected by hand.
 - Decided 2026-11-20 (docs surface design): docs pages load `docs.js` (at most 4096 bytes uncompressed) and the search script only; the size check and the "no other script" check run in CI (ADR 0008). The sample's `docs.js` is 2806 bytes; the 4096 limit leaves room for the search wiring.
 - Contrast of the diagram's red box against the teal box is 1.05 (light) and 1.51 (dark): the two states are told apart by shape and label, not by colour or lightness (DESIGN-marketing.md, R-1).

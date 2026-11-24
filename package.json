@@ -20,7 +20,13 @@
     "check:workflows": "node scripts/check-workflows.mjs"
   },
   "dependencies": {
-    "astro": "7.4.13"
+    "astro": "7.4.13",
+    "github-slugger": "2.0.0",
+    "rehype-stringify": "10.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-rehype": "11.1.2",
+    "unified": "11.0.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
