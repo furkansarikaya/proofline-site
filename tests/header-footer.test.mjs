@@ -16,12 +16,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 sweepStale();
 after(removeTempDirs);
 
-const FIVE_PAIRS = [
+const SIX_PAIRS = [
   { en: '/', tr: '/tr/' },
   { en: '/get-started/', tr: '/tr/baslarken/' },
   { en: '/docs/', tr: '/tr/docs/' },
   { en: '/trust/', tr: '/tr/guven/' },
   { en: '/claude-code-and-codex/', tr: '/tr/claude-code-ve-codex/' },
+  { en: '/contact/', tr: '/tr/iletisim/' },
 ];
 const MENU_EN = [
   { href: '/', label: 'Home' },
@@ -29,6 +30,7 @@ const MENU_EN = [
   { href: '/docs/', label: 'Docs' },
   { href: '/trust/', label: 'Trust' },
   { href: '/claude-code-and-codex/', label: 'Claude Code + Codex' },
+  { href: '/contact/', label: 'Contact' },
 ];
 const MENU_TR = [
   { href: '/tr/', label: 'Ana sayfa' },
@@ -36,6 +38,7 @@ const MENU_TR = [
   { href: '/tr/docs/', label: 'Belgeler' },
   { href: '/tr/guven/', label: 'Güven' },
   { href: '/tr/claude-code-ve-codex/', label: 'Claude Code ve Codex' },
+  { href: '/tr/iletisim/', label: 'İletişim' },
 ];
 const REPO = 'https://github.com/furkansarikaya/proofline';
 const SITE_REPO = 'https://github.com/furkansarikaya/proofline-site';
@@ -103,21 +106,29 @@ describe('icons and controls script source', () => {
 
 describe('navigation module', () => {
   it('menu lists entries in order and only built pages', () => {
-    assert.deepEqual(menu('en', FIVE_PAIRS), MENU_EN);
-    assert.deepEqual(menu('tr', FIVE_PAIRS), MENU_TR);
-    assert.deepEqual(menu('en', [FIVE_PAIRS[4], FIVE_PAIRS[0]]), [MENU_EN[0], MENU_EN[4]], 'the fixed order holds whatever the order of the pairs');
-    assert.deepEqual(menu('en'), [MENU_EN[0], MENU_EN[1], MENU_EN[4]], 'the real pairs give Home, Get started and Claude Code and Codex');
-    assert.deepEqual(menu('tr'), [MENU_TR[0], MENU_TR[1], MENU_TR[4]]);
+    assert.deepEqual(menu('en', SIX_PAIRS), MENU_EN);
+    assert.deepEqual(menu('tr', SIX_PAIRS), MENU_TR);
+    assert.deepEqual(menu('en', [SIX_PAIRS[4], SIX_PAIRS[0]]), [MENU_EN[0], MENU_EN[4]], 'the fixed order holds whatever the order of the pairs');
+    assert.deepEqual(menu('en'), [MENU_EN[0], MENU_EN[1], MENU_EN[4], MENU_EN[5]], 'the real pairs give Home, Get started, Claude Code and Codex and Contact');
+    assert.deepEqual(menu('tr'), [MENU_TR[0], MENU_TR[1], MENU_TR[4], MENU_TR[5]]);
+    // The Contact entry (TASK-026) is the last of the menu whatever pairs are registered, and it shows exactly when its pair is registered.
+    assert.deepEqual(menu('en', [SIX_PAIRS[5], SIX_PAIRS[0]]), [MENU_EN[0], MENU_EN[5]], 'the Contact entry comes last whatever the order of the pairs');
+    assert.deepEqual(menu('tr', [SIX_PAIRS[5], SIX_PAIRS[4], SIX_PAIRS[0]]), [MENU_TR[0], MENU_TR[4], MENU_TR[5]], 'the Contact entry comes after the Claude Code and Codex entry');
+    assert.equal(menu('en', [...SIX_PAIRS].reverse()).at(-1).label, 'Contact', 'the last entry of the full menu is Contact');
+    assert.equal(menu('tr', [...SIX_PAIRS].reverse()).at(-1).label, 'İletişim', 'the last Turkish entry of the full menu is İletişim');
+    assert.deepEqual(menu('en', SIX_PAIRS.slice(0, 5)), MENU_EN.slice(0, 5), 'without the pair of the contact page there is no entry for it');
+    assert.deepEqual(menu('tr', SIX_PAIRS.slice(0, 5)), MENU_TR.slice(0, 5));
+    assert.notDeepEqual(menu('en', SIX_PAIRS), [MENU_EN[5], ...MENU_EN.slice(0, 5)], 'an entry that is not last is told apart from the list');
     // The entry of the page pair shows exactly when its pair is registered: with the two older pairs only it is absent, with the pair added it takes its fixed place.
-    assert.deepEqual(menu('en', [FIVE_PAIRS[0], FIVE_PAIRS[1]]), [MENU_EN[0], MENU_EN[1]], 'without the pair of the Claude Code and Codex page there is no entry for it');
-    assert.deepEqual(menu('tr', [FIVE_PAIRS[0], FIVE_PAIRS[1]]), [MENU_TR[0], MENU_TR[1]]);
-    assert.deepEqual(menu('en', [FIVE_PAIRS[4], FIVE_PAIRS[1], FIVE_PAIRS[0]]), [MENU_EN[0], MENU_EN[1], MENU_EN[4]], 'with the pair added the entry comes last of the three');
-    assert.deepEqual(menu('tr', [FIVE_PAIRS[4], FIVE_PAIRS[1], FIVE_PAIRS[0]]), [MENU_TR[0], MENU_TR[1], MENU_TR[4]]);
-    assert.deepEqual(menu('en').map((entry) => entry.label), ['Home', 'Get started', 'Claude Code + Codex'], 'the English labels');
-    assert.deepEqual(menu('tr').map((entry) => entry.label), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex'], 'the Turkish labels');
+    assert.deepEqual(menu('en', [SIX_PAIRS[0], SIX_PAIRS[1]]), [MENU_EN[0], MENU_EN[1]], 'without the pair of the Claude Code and Codex page there is no entry for it');
+    assert.deepEqual(menu('tr', [SIX_PAIRS[0], SIX_PAIRS[1]]), [MENU_TR[0], MENU_TR[1]]);
+    assert.deepEqual(menu('en', [SIX_PAIRS[4], SIX_PAIRS[1], SIX_PAIRS[0]]), [MENU_EN[0], MENU_EN[1], MENU_EN[4]], 'with the pair added the entry comes last of the three');
+    assert.deepEqual(menu('tr', [SIX_PAIRS[4], SIX_PAIRS[1], SIX_PAIRS[0]]), [MENU_TR[0], MENU_TR[1], MENU_TR[4]]);
+    assert.deepEqual(menu('en').map((entry) => entry.label), ['Home', 'Get started', 'Claude Code + Codex', 'Contact'], 'the English labels');
+    assert.deepEqual(menu('tr').map((entry) => entry.label), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex', 'İletişim'], 'the Turkish labels');
     assert.deepEqual(menu('en', []), [], 'no pair, no entry');
     assert.deepEqual(menu('en', [{ en: '/other/', tr: '/tr/baska/' }]), [], 'an unknown pair adds no entry');
-    assert.deepEqual(MENU.map((e) => e.surface), ['site', 'site', 'docs', 'site', 'site']);
+    assert.deepEqual(MENU.map((e) => e.surface), ['site', 'site', 'docs', 'site', 'site', 'site']);
     for (const rel of walk(join(built.outDir)).filter((f) => f.endsWith('.html'))) {
       const $ = load(readFileSync(join(built.outDir, rel), 'utf8'));
       for (const href of $('header nav a').toArray().map((a) => a.attribs.href)) {
@@ -128,10 +139,10 @@ describe('navigation module', () => {
   });
 
   it('controlsScript is true for the site pages only', () => {
-    for (const page of ['/', '/tr/', '/get-started/', '/tr/baslarken/', '/trust/', '/tr/guven/', '/claude-code-and-codex/', '/tr/claude-code-ve-codex/']) {
+    for (const page of ['/', '/tr/', '/get-started/', '/tr/baslarken/', '/trust/', '/tr/guven/', '/claude-code-and-codex/', '/tr/claude-code-ve-codex/', '/contact/', '/tr/iletisim/']) {
       assert.equal(controlsScript(page), true, `${page} loads the controls script`);
     }
-    for (const page of ['/404.html', '/docs/', '/tr/docs/', '/docs/guide/', '/other/']) assert.equal(controlsScript(page), false, `${page} does not`);
+    for (const page of ['/404.html', '/docs/', '/tr/docs/', '/docs/guide/', '/other/', '/contact/other/', '/tr/iletisim/x/', '/contact']) assert.equal(controlsScript(page), false, `${page} does not`);
   });
 
   it('repository addresses are the two proofline repositories', () => {
@@ -192,9 +203,10 @@ describe('built pages', { timeout: 120000 }, () => {
       assert.equal($('header').length, 1, `${rel} holds one header`);
       assert.deepEqual($('body').find('header, main, footer').toArray().map((el) => el.tagName), ['header', 'main', 'footer'], `${rel}: header, main, footer in that order`);
       const roles = headerRoles($, rel);
-      // The real pairs list three entries today: Home, Get started (TASK-021) and Claude Code and Codex (TASK-023). The not-found page (TASK-024) holds both languages, so its header has no language link.
-      assert.deepEqual(roles, rel === '404.html' ? ['brand', 'menu', 'menu', 'menu', 'github', 'theme'] : ['brand', 'menu', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
-      assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4]], `${rel} menu entries`);
+      // The real pairs list four entries today: Home, Get started (TASK-021), Claude Code and Codex (TASK-023) and Contact (TASK-026). The not-found page (TASK-024) holds both languages, so its header has no language link.
+      assert.deepEqual(roles, rel === '404.html' ? ['brand', 'menu', 'menu', 'menu', 'menu', 'github', 'theme'] : ['brand', 'menu', 'menu', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
+      assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4], MENU_TR[5]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4], MENU_EN[5]], `${rel} menu entries`);
+      assert.equal($('header nav a').last().attr('href'), lang === 'tr' ? '/tr/iletisim/' : '/contact/', `${rel}: the last menu entry is Contact`);
       const brand = $('header .brand');
       assert.equal(squash(brand.text()), 'proofline');
       assert.equal(brand.attr('href'), lang === 'tr' ? '/tr/' : '/', `${rel} brand target`);
@@ -209,14 +221,24 @@ describe('built pages', { timeout: 120000 }, () => {
     const without = load(readFileSync(join(built.outDir, 'index.html'), 'utf8'));
     without('a#b-lang').remove();
     assert.ok(!headerRoles(without, 'index.html').includes('language'), 'a home page without its language link shows in the order');
+    // The menu rule itself: the Contact entry taken away, or moved before the older entries, changes the order read from the page.
+    const menuOfPage = ($) => $('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() }));
+    const noContact = load(readFileSync(join(built.outDir, 'index.html'), 'utf8'));
+    noContact('header nav li').last().remove();
+    assert.notDeepEqual(menuOfPage(noContact), [MENU_EN[0], MENU_EN[1], MENU_EN[4], MENU_EN[5]], 'a header without the Contact entry is found');
+    assert.deepEqual(headerRoles(noContact, 'index.html').filter((role) => role === 'menu').length, 3, 'a header without the Contact entry shows one menu role less');
+    const contactFirst = load(readFileSync(join(built.outDir, 'index.html'), 'utf8'));
+    contactFirst('header nav li').first().before(contactFirst('header nav li').last());
+    assert.notDeepEqual(menuOfPage(contactFirst), [MENU_EN[0], MENU_EN[1], MENU_EN[4], MENU_EN[5]], 'a header with Contact first is found');
+    assert.equal(contactFirst('header nav a').last().attr('href') === '/contact/', false, 'a header with Contact first does not end with it');
     const aria = page('index.html')('header nav a[aria-current="page"]');
     assert.equal(aria.length, 1, 'the entry of the current page is marked');
     assert.equal(aria.attr('href'), '/');
-    // The page of the Claude Code and Codex pair lists the three entries and marks its own.
-    for (const [lang, rel, address] of [['en', 'claude-code-and-codex/index.html', '/claude-code-and-codex/'], ['tr', 'tr/claude-code-ve-codex/index.html', '/tr/claude-code-ve-codex/']]) {
+    // The pages of the Claude Code and Codex pair and of the contact pair list the four entries and mark their own.
+    for (const [lang, rel, address] of [['en', 'claude-code-and-codex/index.html', '/claude-code-and-codex/'], ['tr', 'tr/claude-code-ve-codex/index.html', '/tr/claude-code-ve-codex/'], ['en', 'contact/index.html', '/contact/'], ['tr', 'tr/iletisim/index.html', '/tr/iletisim/']]) {
       const $ = page(rel);
-      const entries = lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4]];
-      assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), entries, `${rel} lists Home, Get started and Claude Code and Codex`);
+      const entries = lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4], MENU_TR[5]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4], MENU_EN[5]];
+      assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), entries, `${rel} lists Home, Get started, Claude Code and Codex and Contact`);
       assert.deepEqual($('header nav a[aria-current="page"]').toArray().map((a) => a.attribs.href), [address], `${rel} marks its own entry`);
     }
   });
@@ -284,7 +306,10 @@ describe('built pages', { timeout: 120000 }, () => {
     const probe = load(readFileSync(join(built.outDir, '404.html'), 'utf8'));
     probe('.tools').prepend('<a class="tool" id="b-lang" href="/tr/" lang="tr" hreflang="tr" aria-label="TR: read this page in Turkish">TR</a>');
     assert.equal(probe('a#b-lang').length, 1, 'a language link added to the not-found page is found');
-    for (const rel of ['get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html']) assert.equal(page(rel)('a#b-lang').length, 1, `${rel} keeps its language link`);
+    for (const rel of ['get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html', 'contact/index.html', 'tr/iletisim/index.html']) assert.equal(page(rel)('a#b-lang').length, 1, `${rel} keeps its language link`);
+    // The language link of a contact page leads to the other contact page, not to a home page; a page list that lacks the contact pages would not read them.
+    assert.equal(page('contact/index.html')('a#b-lang').attr('href'), '/tr/iletisim/');
+    assert.equal(page('tr/iletisim/index.html')('a#b-lang').attr('href'), '/contact/');
   });
 
   it('theme button holds two cells and starts hidden', () => {

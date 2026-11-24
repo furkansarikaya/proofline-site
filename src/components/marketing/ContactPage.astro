@@ -1,0 +1,30 @@
+---
+// The contact page body (TASK-026, ADR 0010): the H1, one short paragraph and the four links of the owner, one block row each, in the order GitHub, LinkedIn, Medium, e-mail.
+// The e-mail row shows the word of the language and then the address as the text of the mailto link. No form, no embedded profile, no image, no script and no third-party resource.
+// The addresses come from src/lib/contact.ts and are never typed here. Layout: the reading column of the get-started page (gs classes); src/styles/contact.css (bundled by Base.astro,
+// so this file imports no stylesheet) lays out the rows and gives each link a target of at least 44 by 44 px.
+import { EMAIL_ADDRESS, OWNER, readContactContent } from '../../lib/contact.ts';
+
+interface Props {
+  /** The frontmatter of the language's contact content file. */
+  content: unknown;
+}
+
+const { content: raw } = Astro.props;
+const content = readContactContent(raw);
+---
+
+<div class="wrap gs">
+  <div class="grid">
+    <div class="gs-col">
+      <h1 class="gs-h1">{content.title}</h1>
+      <p class="gs-p ct-p">{content.paragraph}</p>
+      <ul class="ct-links">
+        <li class="ct-row"><a class="ct-link" href={OWNER.github}>{content.links.github}</a></li>
+        <li class="ct-row"><a class="ct-link" href={OWNER.linkedin}>{content.links.linkedin}</a></li>
+        <li class="ct-row"><a class="ct-link" href={OWNER.medium}>{content.links.medium}</a></li>
+        <li class="ct-row"><span class="ct-label">{content.links.email}</span> <a class="ct-link" href={OWNER.email}>{EMAIL_ADDRESS}</a></li>
+      </ul>
+    </div>
+  </div>
+</div>

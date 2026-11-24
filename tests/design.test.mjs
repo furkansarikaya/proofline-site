@@ -545,6 +545,18 @@ describe('built site', () => {
     return $.html();
   };
 
+  // The owner links of the contact pages (TASK-026, ADR 0010): `a` elements whose address is exactly one of the three external addresses of the owner, on the two contact pages only.
+  // Only their href is skipped (the e-mail link is a mailto address, which the scan never reads as a host); the same address in text, in another attribute (an image source, a stylesheet
+  // link), with a query string, with another scheme or path, and on any other page stays in the scan.
+  const CONTACT_LINKS = new Set(['https://github.com/furkansarikaya', 'https://www.linkedin.com/in/furkansarikaya', 'https://furkansarikaya.medium.com/']);
+  const CONTACT_PAGES = new Set(['dist/contact/index.html', 'dist/tr/iletisim/index.html']);
+  const withoutContactLinks = (name, html) => {
+    if (!CONTACT_PAGES.has(name)) return html;
+    const $ = load(html);
+    $('a[href]').filter((_, el) => CONTACT_LINKS.has(el.attribs.href)).removeAttr('href');
+    return $.html();
+  };
+
   it('styles and dist hold no external host, no import and no foreign url', { timeout: 120000 }, () => {
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
     const probe = withoutHeadMetadata([
@@ -628,6 +640,53 @@ describe('built site', () => {
       const $ = load(existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '');
       assert.ok($('pre[lang="en"][translate="no"]').toArray().some((pre) => $(pre).text().split('\n').includes(CLONE_LINE)), `${name} holds the clone line the scan skips in a command block`);
     }
+    // The owner-link allowance, on probe pages: only the exact three addresses, as the address of an anchor on the two contact pages, leave the scan.
+    const anchor = (href, text = 'x') => `<html><head></head><body><main><ul><li><a href="${href}">${text}</a></li></ul></main></body></html>`;
+    assert.deepEqual([...CONTACT_PAGES].sort(), ['dist/contact/index.html', 'dist/tr/iletisim/index.html'], 'the allowance names exactly the two contact pages');
+    assert.deepEqual([...CONTACT_LINKS].sort(), ['https://furkansarikaya.medium.com/', 'https://github.com/furkansarikaya', 'https://www.linkedin.com/in/furkansarikaya'], 'the allowance names exactly the three addresses');
+    for (const name of CONTACT_PAGES) {
+      for (const href of CONTACT_LINKS) {
+        const skipped = withoutContactLinks(name, anchor(href));
+        assert.doesNotMatch(skipped, /https?:\/\//, `${name}: the owner link ${href} is skipped`);
+        assert.ok(skipped.includes('>x<'), `${name}: the link text stays`);
+      }
+      const all = withoutContactLinks(name, [...CONTACT_LINKS].map((href) => `<a href="${href}">x</a>`).join(''));
+      assert.doesNotMatch(all, /https?:\/\//, `${name}: the three owner links are skipped together`);
+    }
+    const contactKept = [
+      ['dist/contact/index.html', anchor('https://example.com/'), 'another host'],
+      ['dist/contact/index.html', anchor('https://github.com/furkansarikaya/proofline-site-x'), 'another path under the owner host'],
+      ['dist/contact/index.html', anchor('https://github.com/furkansarikaya/'), 'the GitHub address with a trailing slash'],
+      ['dist/contact/index.html', anchor('https://github.com/furkansarikaya?tab=repositories'), 'the GitHub address with a query string'],
+      ['dist/contact/index.html', anchor('http://github.com/furkansarikaya'), 'the GitHub address with http'],
+      ['dist/tr/iletisim/index.html', anchor('https://www.linkedin.com/in/furkansarikaya?utm_source=x'), 'the LinkedIn address with a query string'],
+      ['dist/tr/iletisim/index.html', anchor('https://linkedin.com/in/furkansarikaya'), 'the LinkedIn address without www'],
+      ['dist/tr/iletisim/index.html', anchor('https://furkansarikaya.medium.com'), 'the Medium address without the trailing slash'],
+      ['dist/tr/iletisim/index.html', anchor('https://furkansarikaya.medium.com/?x=1'), 'the Medium address with a query string'],
+      ['dist/tr/iletisim/index.html', anchor('https://medium.com/@furkansarikaya'), 'another Medium address'],
+      ['dist/contact/index.html', anchor('https://github.com/furkansarikaya', 'https://github.com/furkansarikaya'), 'the same address in the text of the link'],
+      ['dist/contact/index.html', '<html><body><p>https://github.com/furkansarikaya</p></body></html>', 'the same address in a paragraph'],
+      ['dist/contact/index.html', '<html><body><a href="/x" data-href="https://github.com/furkansarikaya">x</a></body></html>', 'the same address in another attribute of a link'],
+      ['dist/contact/index.html', '<html><body><img src="https://github.com/furkansarikaya" alt=""></body></html>', 'the address as an image source'],
+      ['dist/contact/index.html', '<html><head><link rel="stylesheet" href="https://github.com/furkansarikaya"></head></html>', 'the address as a stylesheet link'],
+      ['dist/contact/index.html', '<html><body><iframe src="https://www.linkedin.com/in/furkansarikaya"></iframe></body></html>', 'the address as a frame source'],
+      ['dist/contact/index.html', '<html><body><form action="https://furkansarikaya.medium.com/"></form></body></html>', 'the address as a form action'],
+      ['dist/contact/index.html', '<html><body><script src="https://furkansarikaya.medium.com/"></script></body></html>', 'the address as a script source'],
+      ['dist/index.html', anchor('https://github.com/furkansarikaya'), 'the GitHub address on the home page'],
+      ['dist/tr/index.html', anchor('https://www.linkedin.com/in/furkansarikaya'), 'the LinkedIn address on the Turkish home page'],
+      ['dist/get-started/index.html', anchor('https://furkansarikaya.medium.com/'), 'the Medium address on the get-started page'],
+      ['dist/404.html', anchor('https://github.com/furkansarikaya'), 'the GitHub address on the not-found page'],
+      ['dist/contact/other/index.html', anchor('https://github.com/furkansarikaya'), 'the GitHub address below the contact address'],
+      ['dist/tr/iletisim/x.html', anchor('https://github.com/furkansarikaya'), 'the GitHub address in another file of the Turkish contact page'],
+      ['dist/trust/index.html', anchor('https://github.com/furkansarikaya'), 'the GitHub address on a fifth page'],
+    ];
+    for (const [name, html, what] of contactKept) assert.match(withoutContactLinks(name, html), /https?:\/\//, `${what} stays in the scan`);
+    assert.match(withoutContactLinks('dist/contact/index.html', `${anchor('https://github.com/furkansarikaya')}<a href="https://example.com/">y</a>`), /https:\/\/example\.com\//, 'another link on the same page stays in the scan');
+    for (const name of CONTACT_PAGES) {
+      const rel = name.slice('dist/'.length);
+      const $ = load(existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '');
+      assert.deepEqual($('a[href]').toArray().map((a) => a.attribs.href).filter((href) => CONTACT_LINKS.has(href)), [...CONTACT_LINKS], `${name} holds the three owner links the scan skips`);
+    }
     for (const rel of ['index.html', 'tr/index.html']) {
       const raw = existsSync(join(outDir, rel)) ? readFileSync(join(outDir, rel), 'utf8') : '';
       for (const needed of [
@@ -646,7 +705,7 @@ describe('built site', () => {
     assert.ok(files.some(([f]) => f.endsWith('.css') && f.startsWith('dist/')), 'the build emitted a stylesheet');
     assert.ok(files.length >= 7, 'the scan read the sources and the built files');
     for (const [name, raw] of files) {
-      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutCloneLine(name, withoutRepositoryLinks(withoutHeadMetadata(raw))) : raw;
+      const text = name.endsWith('.css') ? stripComments(raw) : name.endsWith('.html') ? withoutContactLinks(name, withoutCloneLine(name, withoutRepositoryLinks(withoutHeadMetadata(raw)))) : raw;
       assert.doesNotMatch(text, /https?:\/\//i, `${name} names no host`);
       assert.doesNotMatch(text, /@import/i, `${name} has no @import`);
       for (const m of text.matchAll(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi)) {
@@ -669,7 +728,10 @@ describe('built site', () => {
     assert.ok(homeAt > pipelineAt, 'Base.astro imports ../styles/home.css after pipeline.css');
     const getStartedAt = layout.search(/import\s+['"]\.\.\/styles\/get-started\.css['"]/);
     assert.ok(getStartedAt > homeAt, 'Base.astro imports ../styles/get-started.css after home.css');
-    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits', 'GetStarted', 'AgentsPage']) {
+    const contactAt = layout.search(/import\s+['"]\.\.\/styles\/contact\.css['"]/);
+    assert.ok(contactAt > getStartedAt, 'Base.astro imports ../styles/contact.css after get-started.css');
+    assert.equal((layout.match(/contact\.css/g) ?? []).length, 1, 'Base.astro imports contact.css once');
+    for (const name of ['Header', 'Footer', 'CommandBlock', 'Home', 'Hero', 'Steps', 'RealOutput', 'Limits', 'GetStarted', 'AgentsPage', 'ContactPage']) {
       assert.ok(read(`src/components/marketing/${name}.astro`) !== '', `${name}.astro exists`);
       assert.doesNotMatch(read(`src/components/marketing/${name}.astro`), /import\s+['"][^'"]*\.css['"]/, `${name}.astro imports no stylesheet, Base.astro bundles the one`);
     }
@@ -677,7 +739,7 @@ describe('built site', () => {
     assert.equal(config.build.inlineStylesheets, 'never', 'astro.config.mjs sets build.inlineStylesheets to never');
     assert.equal(config.build.format, 'directory', 'the existing build format is kept');
     assert.equal(build.status, 0, `the private build exits 0: ${build.stderr.slice(-400)}`);
-    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html']) {
+    for (const rel of ['index.html', 'tr/index.html', 'get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html', 'contact/index.html', 'tr/iletisim/index.html']) {
       assert.ok(existsSync(join(outDir, rel)), `${rel} is built`);
       const $ = load(readFileSync(join(outDir, rel), 'utf8'));
       const links = $('link[rel~=stylesheet]').toArray();

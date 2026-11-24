@@ -795,7 +795,16 @@ it('agents page: the Turkish page is Turkish prose with English only in command 
     for (const key of keysOf('tr')) assert.match(get(tr, key), /[çğıöşüÇĞİÖŞÜ]|(?<![\p{L}])(ve|bir|için|sonra|ile|olan|yerine|içinde|ise|komutunu)(?![\p{L}])/u, `${key} reads as Turkish`);
     assert.deepEqual($('h2').toArray().map((el) => squash($(el).text())), HEADINGS.tr, `${label}: the headings`);
     // The interface text is Turkish: the menu words, the language link and the skip of the layout carry the Turkish words.
-    assert.deepEqual($('header nav a').toArray().map((a) => squash($(a).text())), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex'], `${label}: the menu is Turkish`);
+    const menuWords = (copy) => copy('header nav a').toArray().map((a) => squash(copy(a).text()));
+    assert.deepEqual(menuWords($), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex', 'İletişim'], `${label}: the menu is Turkish`);
+    // The rule itself (TASK-026): the old three-label menu, a menu without the Contact entry and a menu with Contact first are not the menu of the page.
+    const withoutContact = load($.html());
+    withoutContact('header nav li').last().remove();
+    assert.deepEqual(menuWords(withoutContact), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex'], `${label}: the old three-label menu is what the page would show without the entry`);
+    assert.notDeepEqual(menuWords(withoutContact), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex', 'İletişim'], `${label}: a header without the Contact entry is found`);
+    const contactFirst = load($.html());
+    contactFirst('header nav li').first().before(contactFirst('header nav li').last());
+    assert.notDeepEqual(menuWords(contactFirst), ['Ana sayfa', 'Başlarken', 'Claude Code ve Codex', 'İletişim'], `${label}: a header with Contact first is found`);
   }
   // The Turkish page is not the English text with Turkish headings.
   const en = frontmatterOf('en');
@@ -1154,10 +1163,19 @@ it('agents page: every prop of both page files is passed and observed', async ()
 
 it('agents page: the command blocks and the limit use the existing classes and the page links no stylesheet of its own', () => {
   const styles = readdirSync(join(root, 'src', 'styles')).sort();
-  assert.deepEqual(styles, ['base.css', 'components.css', 'get-started.css', 'home.css', 'pipeline.css', 'tokens.css'], 'src/styles holds the known files and no agents.css');
+  const KNOWN_SHEETS = ['base.css', 'components.css', 'contact.css', 'get-started.css', 'home.css', 'pipeline.css', 'tokens.css'];
+  assert.deepEqual(styles, KNOWN_SHEETS, 'src/styles holds the known files (contact.css since TASK-026) and no agents.css');
+  // The rule itself: the old six-sheet list and a folder with a sheet of the agents page are not the known list.
+  assert.notDeepEqual(['base.css', 'components.css', 'get-started.css', 'home.css', 'pipeline.css', 'tokens.css'], KNOWN_SHEETS, 'the old six-sheet list is told apart');
+  assert.notDeepEqual([...KNOWN_SHEETS, 'agents.css'].sort(), KNOWN_SHEETS, 'a sheet of the agents page is told apart');
   assert.equal(existsSync(join(root, 'src', 'styles', 'agents.css')), false, 'no agents.css file');
   const layout = read('src/layouts/Base.astro');
-  assert.deepEqual(layout.match(/^import '[^']+\.css';$/gm), ['tokens', 'base', 'components', 'pipeline', 'home', 'get-started'].map((name) => `import '../styles/${name}.css';`), 'Base.astro imports the known sheets and no new one');
+  const KNOWN_IMPORTS = ['tokens', 'base', 'components', 'pipeline', 'home', 'get-started', 'contact'].map((name) => `import '../styles/${name}.css';`);
+  assert.deepEqual(layout.match(/^import '[^']+\.css';$/gm), KNOWN_IMPORTS, 'Base.astro imports the known sheets (contact.css last since TASK-026) and no new one');
+  // The rule itself: the old six imports, contact.css before get-started.css and an extra sheet are not the known list.
+  assert.notDeepEqual(KNOWN_IMPORTS.slice(0, 6), KNOWN_IMPORTS, 'the old six-import list is told apart');
+  assert.notDeepEqual([...KNOWN_IMPORTS.slice(0, 5), KNOWN_IMPORTS[6], KNOWN_IMPORTS[5]], KNOWN_IMPORTS, 'contact.css before get-started.css is told apart');
+  assert.notDeepEqual([...KNOWN_IMPORTS, "import '../styles/agents.css';"], KNOWN_IMPORTS, 'an extra sheet is told apart');
   for (const rel of [COMPONENT, PAGE_FILE.en, PAGE_FILE.tr, 'src/lib/agents.ts']) {
     const text = read(rel);
     assert.doesNotMatch(text, /\.css['"]/, `${rel} imports no stylesheet`);
