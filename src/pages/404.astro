@@ -1,16 +1,27 @@
 ---
 import Base from '../layouts/Base.astro';
+import { NOT_FOUND_TEXT, notFoundLinks } from '../lib/not-found.ts';
+
+// The one not-found page (TASK-024, ADR 0002): an English block and a Turkish block, each with its own lang and its links. The html element is English, so the title is the English one.
+// It uses the reading column and the classes of the get-started page; the docs links appear when the docs pair is registered (src/lib/not-found.ts).
+const links = notFoundLinks();
 ---
 
-<Base path="/404.html" title={{ kind: 'site', text: 'Page not found | Sayfa bulunamadı' }} lead="This address does not exist.">
-  <section lang="en">
-    <h1>Page not found</h1>
-    <p>This address does not exist.</p>
-    <p><a href="/">Go to the English home page</a></p>
-  </section>
-  <section lang="tr">
-    <h2>Sayfa bulunamadı</h2>
-    <p>Bu adres mevcut değil.</p>
-    <p><a href="/tr/">Türkçe ana sayfaya git</a></p>
-  </section>
+<Base path="/404.html" title={{ kind: 'site', text: NOT_FOUND_TEXT.en.heading }} lead={NOT_FOUND_TEXT.en.sentence}>
+  <div class="wrap gs">
+    <div class="grid">
+      <div class="gs-col">
+        <section lang="en" class="gs-part">
+          <h1 class="gs-h1">{NOT_FOUND_TEXT.en.heading}</h1>
+          <p class="gs-p">{NOT_FOUND_TEXT.en.sentence}</p>
+          {links.en.map((link) => <p class="gs-p"><a href={link.href}>{link.label}</a></p>)}
+        </section>
+        <section lang="tr" class="gs-part">
+          <h2 class="gs-h2">{NOT_FOUND_TEXT.tr.heading}</h2>
+          <p class="gs-p">{NOT_FOUND_TEXT.tr.sentence}</p>
+          {links.tr.map((link) => <p class="gs-p"><a href={link.href}>{link.label}</a></p>)}
+        </section>
+      </div>
+    </div>
+  </div>
 </Base>

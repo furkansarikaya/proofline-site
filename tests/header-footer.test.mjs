@@ -173,22 +173,27 @@ function page(rel) {
 
 const PAGES = [['en', 'index.html', '/'], ['tr', 'tr/index.html', '/tr/']];
 
+/** The roles of the header controls in the order of the document: brand, menu, github, language, theme. */
+function headerRoles($, rel) {
+  return $('header a[href], header button').toArray().map((el) => {
+    if ($(el).hasClass('brand')) return 'brand';
+    if (el.attribs.id === 'b-gh') return 'github';
+    if (el.attribs.id === 'b-lang') return 'language';
+    if (el.attribs.id === 'b-theme') return 'theme';
+    assert.equal($(el).closest('nav').length, 1, `${rel}: an unnamed header control is a menu link`);
+    return 'menu';
+  });
+}
+
 describe('built pages', { timeout: 120000 }, () => {
   it('header order on English and Turkish pages', () => {
     for (const [lang, rel] of [...PAGES, ['en', '404.html']]) {
       const $ = page(rel);
       assert.equal($('header').length, 1, `${rel} holds one header`);
       assert.deepEqual($('body').find('header, main, footer').toArray().map((el) => el.tagName), ['header', 'main', 'footer'], `${rel}: header, main, footer in that order`);
-      const roles = $('header a[href], header button').toArray().map((el) => {
-        if ($(el).hasClass('brand')) return 'brand';
-        if (el.attribs.id === 'b-gh') return 'github';
-        if (el.attribs.id === 'b-lang') return 'language';
-        if (el.attribs.id === 'b-theme') return 'theme';
-        assert.equal($(el).closest('nav').length, 1, `${rel}: an unnamed header control is a menu link`);
-        return 'menu';
-      });
-      // The real pairs list three entries today: Home, Get started (TASK-021) and Claude Code and Codex (TASK-023).
-      assert.deepEqual(roles, ['brand', 'menu', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
+      const roles = headerRoles($, rel);
+      // The real pairs list three entries today: Home, Get started (TASK-021) and Claude Code and Codex (TASK-023). The not-found page (TASK-024) holds both languages, so its header has no language link.
+      assert.deepEqual(roles, rel === '404.html' ? ['brand', 'menu', 'menu', 'menu', 'github', 'theme'] : ['brand', 'menu', 'menu', 'menu', 'github', 'language', 'theme'], `${rel} header order`);
       assert.deepEqual($('header nav a').toArray().map((a) => ({ href: a.attribs.href, label: $(a).text().trim() })), lang === 'tr' ? [MENU_TR[0], MENU_TR[1], MENU_TR[4]] : [MENU_EN[0], MENU_EN[1], MENU_EN[4]], `${rel} menu entries`);
       const brand = $('header .brand');
       assert.equal(squash(brand.text()), 'proofline');
@@ -197,6 +202,13 @@ describe('built pages', { timeout: 120000 }, () => {
       assert.equal($('header nav a').first().attr('href'), lang === 'tr' ? '/tr/' : '/', `${rel} menu starts with Home`);
       assert.equal($('header nav a').first().text(), lang === 'tr' ? 'Ana sayfa' : 'Home');
     }
+    // The rule itself: a language link added to the not-found page, or taken from a home page, changes the order.
+    const withLink = load(readFileSync(join(built.outDir, '404.html'), 'utf8'));
+    withLink('.tools #b-gh').after('<a class="tool" id="b-lang" href="/tr/" lang="tr" hreflang="tr" aria-label="TR: read this page in Turkish">TR</a>');
+    assert.ok(headerRoles(withLink, '404.html').includes('language'), 'a language link on the not-found page shows in the order');
+    const without = load(readFileSync(join(built.outDir, 'index.html'), 'utf8'));
+    without('a#b-lang').remove();
+    assert.ok(!headerRoles(without, 'index.html').includes('language'), 'a home page without its language link shows in the order');
     const aria = page('index.html')('header nav a[aria-current="page"]');
     assert.equal(aria.length, 1, 'the entry of the current page is marked');
     assert.equal(aria.attr('href'), '/');
@@ -262,9 +274,17 @@ describe('built pages', { timeout: 120000 }, () => {
       assert.equal(link.attr('href'), lang === 'en' ? '/tr/' : '/', `${rel}: the language link leads to the other home page`);
       assert.equal(page(rel)('main h1.home-h1').length, 1, `${rel}: the page is the real home page`);
     }
-    const notFound = page('404.html')('a#b-lang');
-    assert.equal(notFound.attr('href'), switcherTarget('/404.html').href);
-    assert.equal(page('404.html')('link[hreflang]').length, 0, 'the link element count stays 0 on 404');
+    // The not-found page holds both languages (TASK-024), so it prints no language link at all, whatever switcherTarget answers for its address.
+    const notFound = page('404.html');
+    assert.equal(notFound('a#b-lang').length, 0, 'the not-found page prints no language link');
+    assert.equal(notFound('[aria-label*="read this page in Turkish"]').length, 0, 'the not-found page names no language link');
+    assert.equal(switcherTarget('/404.html').href, '/tr/', 'the switcher target of the address itself is untouched');
+    assert.equal(notFound('link[hreflang]').length, 0, 'the link element count stays 0 on 404');
+    // The rule itself: a language link on the not-found page is found by the same selector, and every other built page still has one.
+    const probe = load(readFileSync(join(built.outDir, '404.html'), 'utf8'));
+    probe('.tools').prepend('<a class="tool" id="b-lang" href="/tr/" lang="tr" hreflang="tr" aria-label="TR: read this page in Turkish">TR</a>');
+    assert.equal(probe('a#b-lang').length, 1, 'a language link added to the not-found page is found');
+    for (const rel of ['get-started/index.html', 'tr/baslarken/index.html', 'claude-code-and-codex/index.html', 'tr/claude-code-ve-codex/index.html']) assert.equal(page(rel)('a#b-lang').length, 1, `${rel} keeps its language link`);
   });
 
   it('theme button holds two cells and starts hidden', () => {
@@ -308,6 +328,13 @@ describe('built pages', { timeout: 120000 }, () => {
         [lang === 'tr' ? 'proofline ile yapıldı' : 'Built with proofline', SITE_REPO, undefined],
       ]);
     }
+    // The not-found page (TASK-024) holds both languages in the same one paragraph: an English span, then a Turkish span, the paragraph itself with no lang.
+    const notFound = page('404.html');
+    assert.equal(notFound('footer').length, 1, '404: one footer');
+    assert.equal(notFound('footer p').length, 1, '404: one paragraph');
+    assert.equal(notFound('footer p').attr('lang'), undefined, '404: the paragraph has no lang of its own');
+    assert.deepEqual(notFound('footer p span').toArray().map((span) => [span.attribs.lang, squash(notFound(span).text())]), [['en', FOOTER.en], ['tr', FOOTER.tr]], '404: English span then Turkish span');
+    assert.equal(notFound('footer a').length, 4, '404: the two links of each language');
     // the unit cases of the pin reader and the link builder
     const dir = makeTempDir('proofline-site-');
     assert.equal(pinnedCommit(dir), null, 'no sync/pin.json gives null');
