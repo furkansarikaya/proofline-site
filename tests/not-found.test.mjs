@@ -41,13 +41,14 @@ const FOOTER = {
   tr: 'Çerez ve analitik betiği yok. Barındırıcı olağan istek günlüklerini tutar. MIT lisanslı (LICENSE). proofline ile yapıldı.',
 };
 const BUILT_LINK = { en: 'Built with proofline', tr: 'proofline ile yapıldı' };
-// The five menu entries in the order of ADR 0002 point 8, each with its pair; an entry is listed exactly when its pair is registered.
+// The six menu entries in the order of ADR 0002 point 8 and ADR 0010 (Contact last, TASK-026), each with its pair; an entry is listed exactly when its pair is registered.
 const MENU_ALL = [
   { en: ['/', 'Home'], pair: { en: '/', tr: '/tr/' } },
   { en: ['/get-started/', 'Get started'], pair: { en: '/get-started/', tr: '/tr/baslarken/' } },
   { en: ['/docs/', 'Docs'], pair: { en: '/docs/', tr: '/tr/docs/' } },
   { en: ['/trust/', 'Trust'], pair: { en: '/trust/', tr: '/tr/guven/' } },
   { en: ['/claude-code-and-codex/', 'Claude Code + Codex'], pair: { en: '/claude-code-and-codex/', tr: '/tr/claude-code-ve-codex/' } },
+  { en: ['/contact/', 'Contact'], pair: { en: '/contact/', tr: '/tr/iletisim/' } },
 ];
 const expectedMenu = (pairs) => MENU_ALL.filter((entry) => pairs.some((pair) => pair.en === entry.pair.en && pair.tr === entry.pair.tr)).map((entry) => entry.en);
 const registered = (pairs) => pairs.some((pair) => pair.en === '/docs/' && pair.tr === '/tr/docs/');
@@ -688,6 +689,12 @@ it('not found: the header has brand, menu, GitHub link and theme button and no l
   header(($$) => $$('a#b-gh').remove(), /header order/);
   header(($$) => $$('button#b-theme').remove(), /header order|theme button/);
   header(($$) => $$('header nav a').last().remove(), /menu entries|header order/);
+  // The menu list itself (TASK-026): the old five-entry list is not the menu of the built page, the contact entry is listed last and only when its pair is registered.
+  assert.equal(MENU_ALL.length, 6, 'six menu entries');
+  assert.deepEqual(expectedMenu(PAIRS).at(-1), ['/contact/', 'Contact'], 'the real pairs end the menu with Contact');
+  assert.ok(headerProblems($, expectedMenu(PAIRS).filter((entry) => entry[0] !== '/contact/')).length > 0, 'the old menu without the contact entry is found');
+  assert.deepEqual(expectedMenu(PAIRS.filter((pair) => pair.en !== '/contact/')).map((entry) => entry[0]), expectedMenu(PAIRS).map((entry) => entry[0]).filter((href) => href !== '/contact/'), 'no contact pair, no contact entry');
+  assert.ok(headerProblems($, [...expectedMenu(PAIRS).slice(-1), ...expectedMenu(PAIRS).slice(0, -1)]).length > 0, 'a menu with Contact first is found');
   header(($$) => $$('a.brand').attr('href', '/tr/'), /brand/);
   header(($$) => $$('a#b-gh').attr('href', 'https://example.com/'), /GitHub/);
   header(($$) => $$('header .tools').append('<span lang="tr">x</span>'), /own lang/);

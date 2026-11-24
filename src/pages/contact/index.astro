@@ -1,0 +1,12 @@
+---
+import Base from '../../layouts/Base.astro';
+import ContactPage from '../../components/marketing/ContactPage.astro';
+import { frontmatter } from '../../content/pages/en/contact.md';
+import { readContactContent } from '../../lib/contact.ts';
+
+const content = readContactContent(frontmatter);
+---
+
+<Base path="/contact/" title={{ kind: 'site', text: content.title }} lead={content.lead}>
+  <ContactPage content={content} />
+</Base>

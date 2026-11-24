@@ -15,13 +15,14 @@ export interface MenuEntry {
   readonly surface: 'site' | 'docs';
 }
 
-/** The five entries in the order of ADR 0002 point 8, with the addresses of its address table and the labels of TASK-005. */
+/** The six entries in the order of ADR 0002 point 8 and ADR 0010 (Contact last), with the addresses of its address table and the labels of TASK-005 and TASK-026. */
 export const MENU: readonly MenuEntry[] = [
   { en: '/', tr: '/tr/', label: { en: 'Home', tr: 'Ana sayfa' }, surface: 'site' },
   { en: '/get-started/', tr: '/tr/baslarken/', label: { en: 'Get started', tr: 'Başlarken' }, surface: 'site' },
   { en: '/docs/', tr: '/tr/docs/', label: { en: 'Docs', tr: 'Belgeler' }, surface: 'docs' },
   { en: '/trust/', tr: '/tr/guven/', label: { en: 'Trust', tr: 'Güven' }, surface: 'site' },
   { en: '/claude-code-and-codex/', tr: '/tr/claude-code-ve-codex/', label: { en: 'Claude Code + Codex', tr: 'Claude Code ve Codex' }, surface: 'site' },
+  { en: '/contact/', tr: '/tr/iletisim/', label: { en: 'Contact', tr: 'İletişim' }, surface: 'site' },
 ];
 
 export const REPO_URL = 'https://github.com/furkansarikaya/proofline';

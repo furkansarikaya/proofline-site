@@ -1,0 +1,49 @@
+/* Contact page (TASK-026). Imported by src/layouts/Base.astro after get-started.css, so the build keeps one stylesheet. Class prefix ct-.
+   The page uses the reading column of get-started.css (gs, gs-col, gs-h1, gs-p); this file only lays out the four owner links as block rows and gives each link a target of at least
+   44 by 44 CSS pixels. The focus ring is the one rule of base.css for every link (2px --accent, 3px offset). Colours only through tokens, no gradient, no radius, no shadow, no inline style.
+   Nothing here reaches a pre or code element or the command blocks (gs-call) of the other pages, and no size is set above the reading column. */
+
+/* The paragraph: the width of the reading column's paragraph (get-started.css, 75ch) is replaced by one in em. DESIGN.md Typography (step-body) allows at most 75 characters a line on the marketing
+   surface and names ch, the width of a zero, as the wrong tool; 33em holds at most 72 characters of this copy on a line (longest line 67 with the balanced wrap below). Balanced wrapping spreads the
+   words over the lines the paragraph already has, so the last line is never a few words; a browser without it falls back to the plain wrap, still inside the width. */
+.gs-p.ct-p {
+  max-width: 33em;
+  text-wrap: balance;
+}
+
+.ct-links {
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One row per link, a 1px --rule hairline above it and one under the last row. The row wraps: a label and an address that do not fit side by side stack, the label above the address,
+   so neither is ever cut inside a word. */
+.ct-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  min-height: 44px;
+  border-top: 1px solid var(--rule);
+}
+
+.ct-row:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+/* The word in front of the address: one line, never shrunk and never broken, not even at its hyphen. */
+.ct-label {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* The target: at least 44 by 44px, text centred on the row. The address sits whole on a line of its own when it does not fit beside the label; it breaks inside itself only where the
+   column is narrower than the address alone. */
+.ct-link {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
